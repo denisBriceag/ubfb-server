@@ -13,6 +13,7 @@ import jwtConfig from './configs/jwt.config';
 import { ConfigModule } from '@nestjs/config';
 import { HashingModule } from '@core/hashing';
 import { AuthenticationController } from './controllers/authentication.controller';
+import { UserModule } from '../user/user.module';
 
 @Module({
   controllers: [AuthenticationController],
@@ -29,6 +30,7 @@ import { AuthenticationController } from './controllers/authentication.controlle
     TypeOrmModule.forFeature([User]),
     JwtModule.registerAsync(jwtConfig.asProvider()),
     ConfigModule.forFeature(jwtConfig),
+    UserModule,
     RedisModule,
     CookiesModule,
     HashingModule,
