@@ -1,7 +1,10 @@
+import { FEATURES } from '@core/constants';
+
 export enum ErrorsEnum {
   PG_UNIQUE_VIOLATION = '23505',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   SIGN_UP_CONFLICT = 'User was already created.',
+  GENERIC_CONFLICT_EXCEPTION = 'Conflict occurred while processing request. Item already exists in database.',
   INVALID_TOKEN_TYPE = 'Invalid token type',
   INVALID_ACCESS_TOKEN = 'Invalid access token',
   INVALID_RESET_TOKEN = 'Invalid reset token.',
@@ -22,7 +25,9 @@ export enum ErrorsEnum {
   ACCESS_DENIED_NO_REFRESH_TOKEN = 'Access to the resource is denied, No refresh token provided.',
   NO_CONTENT = 'No content was provided',
   NOT_ENOUGH_PERMISSIONS = 'You do not have permission to access this resource.',
+  NOT_ENOUGH_PERMISSIONS_OPERATION = 'You do not have permission to perform this operation.',
   VERSION_NOT_FOUND = 'Content version miss match. Try updating again.',
+  VERSION_MISMATCH = 'Content version miss match. Try updating again.',
   OPERATION_ERROR = 'Unable to perform operation. Try again later.',
   S3_READ_FAILED = 'Could not read image from S3',
   S3_UPLOAD_FAILED = 'Failed to upload image to S3',
@@ -39,6 +44,7 @@ export const ERROR_MAP = {
   INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',
   INVALID_ACCESS_TOKEN: 'INVALID_ACCESS_TOKEN',
   INVALID_RESET_TOKEN: 'INVALID_RESET_TOKEN',
+  GENERIC_CONFLICT_EXCEPTION: 'GENERIC_CONFLICT_EXCEPTION',
   PASSWORD_RESET_TOKEN_EXPIRED: 'PASSWORD_RESET_TOKEN_EXPIRED',
   ACCESS_TOKEN_REVOKED: 'ACCESS_TOKEN_REVOKED',
   ACCESS_TOKEN_EXPIRED: 'ACCESS_TOKEN_EXPIRED',
@@ -46,6 +52,8 @@ export const ERROR_MAP = {
   REFRESH_TOKEN_REUSE: 'REFRESH_TOKEN_REUSE',
   ACCESS_TOKEN_REUSE: 'ACCESS_TOKEN_REUSE',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  INVALID_ID: 'INVALID_ID',
+  INVALID_EMAIL: 'INVALID_EMAIL',
   PASS_DOES_NOT_MATCH: 'PASS_DOES_NOT_MATCH',
   USER_DOES_NO_EXIST: 'USER_DOES_NO_EXIST',
   NEWS_DOES_NO_EXIST: 'NEWS_DOES_NO_EXIST',
@@ -55,7 +63,9 @@ export const ERROR_MAP = {
   ACCESS_DENIED_NO_REFRESH_TOKEN: 'ACCESS_DENIED_NO_REFRESH_TOKEN',
   NO_CONTENT: 'NO_CONTENT',
   VERSION_NOT_FOUND: 'VERSION_NOT_FOUND',
+  VERSION_MISMATCH: 'VERSION_MISMATCH',
   NOT_ENOUGH_PERMISSIONS: 'NOT_ENOUGH_PERMISSIONS',
+  NOT_ENOUGH_PERMISSIONS_OPERATION: 'NOT_ENOUGH_PERMISSIONS_OPERATION',
   OPERATION_ERROR: 'OPERATION_ERROR',
   S3_READ_FAILED: 'S3_READ_FAILED',
   S3_UPLOAD_FAILED: 'S3_UPLOAD_FAILED',
@@ -64,3 +74,11 @@ export const ERROR_MAP = {
   ALCOHOL_PERCENTAGE_NON_NEGATIVE: 'ALCOHOL_PERCENTAGE_NON_NEGATIVE',
   ALCOHOL_PERCENTAGE_NO_EXCEED: 'ALCOHOL_PERCENTAGE_NO_EXCEED',
 } as const;
+
+export const ERROR_MESSAGES = {
+  notFound: (
+    key: string,
+    value: string,
+    feature: (typeof FEATURES)[keyof typeof FEATURES],
+  ) => `${feature} with ${key} ${value} not found`,
+};

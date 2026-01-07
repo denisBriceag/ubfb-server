@@ -1,4 +1,5 @@
 export const FEATURES = {
+  USER: 'user',
   NEWS: 'news',
   CAROUSEL: 'carousel',
   PRODUCTS: 'products',
