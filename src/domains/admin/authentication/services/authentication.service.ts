@@ -5,9 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '@core/entities/user.entity';
-import { Repository } from 'typeorm';
 import jwtConfig from '../configs/jwt.config';
 import type { ConfigType } from '@nestjs/config';
 import { HashingService } from '@core/hashing';
@@ -27,6 +25,7 @@ import { Request } from 'express';
 import { ActiveUserData } from '../types/active-user-data.type';
 import { AuthResponse } from '../types/auth-response.type';
 import { MailService } from '@core/mail/services/mail.service';
+import { UserService } from '../../user/services/user.service';
 
 @Injectable()
 export class AuthenticationService {
@@ -36,13 +35,13 @@ export class AuthenticationService {
   private readonly _passResetTtl = 15 * 60 * 1000; // 15 mins
 
   constructor(
-    @InjectRepository(User) private readonly _usersRepository: Repository<User>,
     @Inject(jwtConfig.KEY)
     private readonly _jwtConfig: ConfigType<typeof jwtConfig>,
     private readonly _hashingService: HashingService,
     private readonly _jwtService: JwtService,
     private readonly _redisService: RedisService,
     private readonly _mailService: MailService,
+    private readonly _userService: UserService,
   ) {}
 
   async me(request: Request): Promise<ActiveUserData> {
@@ -55,9 +54,7 @@ export class AuthenticationService {
       );
 
       const { id, email, name, role } =
-        await this._usersRepository.findOneByOrFail({
-          id: sub,
-        });
+        await this._userService.findOneById(sub);
 
       return { sub: id, email, name, role };
     } catch {
@@ -70,15 +67,7 @@ export class AuthenticationService {
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponse> {
     try {
-      const user = new User();
-
-      user.email = signUpDto.email;
-      user.name = signUpDto.name;
-      user.role = signUpDto.role;
-
-      user.password = await this._hashingService.hash(signUpDto.password);
-
-      await this._usersRepository.save(user);
+      const user = await this._userService.create(signUpDto);
 
       return await this._generateTokens(user);
     } catch (err) {
@@ -94,9 +83,7 @@ export class AuthenticationService {
   }
 
   async signIn(signInDto: SignInDto): Promise<AuthResponse> {
-    const user = await this._usersRepository.findOneBy({
-      email: signInDto.email,
-    });
+    const user = await this._userService.findOneByEmail(signInDto.email, true);
 
     if (!user) {
       throw new UnauthorizedException({
@@ -178,10 +165,7 @@ export class AuthenticationService {
   }
 
   async requestPasswordReset(email: string): Promise<void> {
-    const user = await this._usersRepository.findOne({
-      where: { email },
-      select: ['id', 'email', 'name'],
-    });
+    const user = await this._userService.findOneByEmail(email);
 
     if (!user) return;
 
@@ -209,7 +193,7 @@ export class AuthenticationService {
       });
     }
 
-    const user = await this._usersRepository.findOneBy({ id: userId });
+    const user = await this._userService.findOneByEmail(userId, true);
 
     if (!user) {
       throw new UnauthorizedException({
@@ -220,7 +204,7 @@ export class AuthenticationService {
 
     user.password = await this._hashingService.hash(newPassword);
 
-    await this._usersRepository.save(user);
+    await this._userService.create(user, userId);
 
     await this._redisService.invalidate(`${this._redisKey}${user.id}`);
 
@@ -255,9 +239,7 @@ export class AuthenticationService {
           errorCode: ERROR_MAP.INVALID_TOKEN_TYPE,
         });
 
-      const user = await this._usersRepository.findOneByOrFail({
-        id: sub,
-      });
+      const user = await this._userService.findOneById(sub);
 
       const isValid = await this._redisService.validate(
         `${this._redisKey}${user.id}`,

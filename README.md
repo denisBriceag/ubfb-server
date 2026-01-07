@@ -28,7 +28,20 @@
 ## Project setup
 
 ```bash
+$ nvm use
 $ pnpm install
+```
+
+## Migrations
+```bash
+# Create a new migration
+$ npx typeorm migration:create src/migrations/${migration_name}
+
+# Build Application
+$ pnpm run build
+
+# Run migrations
+$ npx typeorm migration:run -d dist/typeorm-cli.config
 ```
 
 ## Compile and run the project
