@@ -7,13 +7,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthenticationGuard } from './guards/authentication/authentication.guard';
 import { RolesGuard } from './guards/roles/roles.guard';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from '@core/entities/user.entity';
+import { User } from '@features/user/entities/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import jwtConfig from './configs/jwt.config';
 import { ConfigModule } from '@nestjs/config';
 import { HashingModule } from '@core/hashing';
 import { AuthenticationController } from './controllers/authentication.controller';
-import { UserModule } from '../user/user.module';
+import { UserModule } from '@features/user/user.module';
 
 @Module({
   controllers: [AuthenticationController],

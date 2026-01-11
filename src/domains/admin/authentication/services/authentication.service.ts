@@ -5,7 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { User } from '@core/entities/user.entity';
+import { User } from '@features/user/entities/user.entity';
 import jwtConfig from '../configs/jwt.config';
 import type { ConfigType } from '@nestjs/config';
 import { HashingService } from '@core/hashing';
@@ -22,10 +22,10 @@ import {
 } from '../types/token-signature.type';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { Request } from 'express';
-import { ActiveUserData } from '../types/active-user-data.type';
+import { ActiveUserData } from '@core/types/active-user-data.type';
 import { AuthResponse } from '../types/auth-response.type';
 import { MailService } from '@core/mail/services/mail.service';
-import { UserService } from '../../user/services/user.service';
+import { UserService } from '@features/user/services/user.service';
 
 @Injectable()
 export class AuthenticationService {
@@ -67,7 +67,7 @@ export class AuthenticationService {
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponse> {
     try {
-      const user = await this._userService.create(signUpDto);
+      const user = (await this._userService.create(signUpDto, true)) as User;
 
       return await this._generateTokens(user);
     } catch (err) {
@@ -164,6 +164,10 @@ export class AuthenticationService {
     }
   }
 
+  /**
+   * @todo We need to log everytime when user tries to reset his password
+   * @todo We need to hash userId in the token, so it will be available for updater information.
+   * */
   async requestPasswordReset(email: string): Promise<void> {
     const user = await this._userService.findOneByEmail(email);
 
@@ -204,7 +208,7 @@ export class AuthenticationService {
 
     user.password = await this._hashingService.hash(newPassword);
 
-    await this._userService.create(user, userId);
+    await this._userService.create(user);
 
     await this._redisService.invalidate(`${this._redisKey}${user.id}`);
 

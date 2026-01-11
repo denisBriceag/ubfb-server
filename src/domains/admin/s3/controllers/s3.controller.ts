@@ -13,8 +13,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Images } from '@core/types/images';
 import { ApiTags } from '@nestjs/swagger';
 import { multerMemoryStorage } from '../configs/multer.config';
-import { AuthType } from '../../authentication/types/auth-type.enum';
-import { Auth } from '../../authentication/decorators/auth.decorator';
+import { AuthType } from '@core/types/auth-type.enum';
+import { Auth } from '@core/decorators/auth.decorator';
 
 @ApiTags('S3')
 @Auth(AuthType.None)
