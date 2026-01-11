@@ -1,16 +1,11 @@
 import {
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { User } from '@core/entities/user.entity';
+import { User } from '@features/user/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Brackets,
-  OptimisticLockVersionMismatchError,
-  Repository,
-} from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { HashingService } from '@core/hashing';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { Roles } from '@core/types/roles.enum';
@@ -25,17 +20,6 @@ import { FindManyUsersDto, UserSortBy } from '../dto/find-many-users.dto';
 export class UserService {
   private readonly _defaultPage = 1;
   private readonly _defaultLimit = 10;
-  private readonly _nonPasswordColumns: (keyof Omit<User, 'password'>)[] = [
-    'id',
-    'version',
-    'email',
-    'name',
-    'role',
-    'createdAt',
-    'updatedAt',
-    'deletedAt',
-    'updatedBy',
-  ];
 
   constructor(
     @InjectRepository(User) private readonly _userRepository: Repository<User>,
@@ -44,81 +28,134 @@ export class UserService {
 
   async create(
     createUserDto: CreateUserDto,
-    updatedBy: User['updatedBy'] = null,
     withPassword = false,
-  ): Promise<User> {
+    updatedBy: User['updatedBy'] = null,
+    isExternallyCreated = false,
+  ): Promise<Omit<User, 'password'> | User> {
     const hashedPassword = await this._hashingService.hash(
       createUserDto.password,
     );
 
-    try {
-      const user = await this._userRepository
-        .createQueryBuilder()
-        .insert()
-        .into(User)
-        .values({
-          email: createUserDto.email,
-          name: createUserDto.name,
-          password: hashedPassword,
-          role: createUserDto.role,
-          updatedBy,
-        })
-        .returning(withPassword ? '*' : this._nonPasswordColumns)
-        .execute();
+    const newUser = { ...createUserDto, password: hashedPassword } as
+      | Omit<User, 'password'>
+      | User;
 
-      return user.raw[0];
-    } catch (error) {
-      if (error.code === ErrorsEnum.PG_UNIQUE_VIOLATION) {
-        throw new ConflictException({
-          message: ErrorsEnum.GENERIC_CONFLICT_EXCEPTION,
-          errorCode: ERROR_MAP.GENERIC_CONFLICT_EXCEPTION,
-        });
-      }
-
-      throw error;
+    if (isExternallyCreated) {
+      newUser.updatedBy = updatedBy;
+      newUser.updater = await this._userRepository.findOne({
+        where: { id: updatedBy as string },
+        select: ['id', 'email'],
+      });
     }
+
+    const user = await this._userRepository.save(newUser);
+
+    const { password, ...userData } = user;
+
+    if (withPassword) {
+      return user;
+    }
+
+    return userData;
   }
 
   async softDelete(
     id: User['id'],
     updatedBy: User['updatedBy'],
+    userRole: User['role'],
   ): Promise<void> {
-    const result = await this._userRepository
-      .createQueryBuilder()
-      .update(User)
-      .set({ updatedBy })
-      .where('id = :id', { id })
-      .execute();
+    if (id === updatedBy) {
+      throw new ForbiddenException({
+        message: ErrorsEnum.SELF_DELETION_NOT_ALLOWED,
+        errorCode: ERROR_MAP.SELF_DELETION_NOT_ALLOWED,
+      });
+    }
 
-    if (result.affected === 0) {
+    const user = await this._userRepository.findOneBy({ id });
+
+    if (!user) {
       throw new NotFoundException({
         message: ERROR_MESSAGES.notFound('id', id, 'user'),
         errorCode: ERROR_MAP.INVALID_ID,
       });
     }
 
-    await this._userRepository
-      .createQueryBuilder()
-      .softDelete()
-      .from(User)
-      .where('id = :id', { id })
-      .execute();
+    if (userRole === user.role) {
+      throw new ForbiddenException({
+        message: ErrorsEnum.NOT_ENOUGH_PERMISSIONS_OPERATION,
+        errorCode: ERROR_MAP.NOT_ENOUGH_PERMISSIONS_OPERATION,
+      });
+    }
+
+    const userToSoftDelete = {
+      ...user,
+      updatedBy,
+      updater: await this._userRepository.findOne({
+        where: { id: updatedBy as string },
+        select: ['id', 'email'],
+      }),
+    };
+
+    await this._userRepository.softDelete(userToSoftDelete.id);
   }
 
-  async hardDelete(id: User['id']): Promise<void> {
-    const result = await this._userRepository
-      .createQueryBuilder()
-      .delete()
-      .from(User)
-      .where('id = :id', { id })
-      .execute();
+  async hardDelete(
+    id: User['id'],
+    updatedBy: User['id'],
+    userRole: User['role'],
+  ): Promise<void> {
+    if (id === updatedBy) {
+      throw new ForbiddenException({
+        message: ErrorsEnum.SELF_DELETION_NOT_ALLOWED,
+        errorCode: ERROR_MAP.SELF_DELETION_NOT_ALLOWED,
+      });
+    }
 
-    if (result.affected === 0) {
+    const user = await this._userRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!user) {
       throw new NotFoundException({
         message: ERROR_MESSAGES.notFound('id', id, 'user'),
         errorCode: ERROR_MAP.INVALID_ID,
       });
     }
+
+    if (userRole === user.role) {
+      throw new ForbiddenException({
+        message: ErrorsEnum.NOT_ENOUGH_PERMISSIONS_OPERATION,
+        errorCode: ERROR_MAP.NOT_ENOUGH_PERMISSIONS_OPERATION,
+      });
+    }
+
+    await this._userRepository.delete(user.id);
+  }
+
+  async restore(id: User['id'], updatedBy: User['updatedBy']): Promise<void> {
+    const user = await this._userRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!user) {
+      throw new NotFoundException({
+        message: ERROR_MESSAGES.notFound('id', id, 'user'),
+        errorCode: ERROR_MAP.INVALID_ID,
+      });
+    }
+
+    const userToSoftDelete = {
+      ...user,
+      updatedBy,
+      updater: await this._userRepository.findOne({
+        where: { id: updatedBy as string },
+        select: ['id', 'email'],
+      }),
+    };
+
+    await this._userRepository.restore(userToSoftDelete.id);
   }
 
   async update(
@@ -130,7 +167,6 @@ export class UserService {
     const updateData: Partial<User> = { ...updateUserDto, updatedBy };
 
     if (
-      currentRole === Roles.USER ||
       (currentRole === Roles.ADMIN && updateUserDto.role !== Roles.USER) ||
       (currentRole === Roles.SUPER_ADMIN &&
         updateUserDto.role === Roles.SUPER_ADMIN)
@@ -147,32 +183,22 @@ export class UserService {
       );
     }
 
-    const result = await this._userRepository
-      .createQueryBuilder()
-      .update(User)
-      .set(updateData)
-      .where('id = :id', { id })
-      .returning(this._nonPasswordColumns)
-      .execute()
-      .catch((error) => {
-        if (error instanceof OptimisticLockVersionMismatchError) {
-          throw new ConflictException({
-            message: ErrorsEnum.VERSION_MISMATCH,
-            errorCode: ERROR_MAP.VERSION_MISMATCH,
-          });
-        }
+    const existingUser = await this._userRepository.findOne({
+      where: { id },
+      lock: { mode: 'optimistic', version: updateUserDto.version },
+    });
 
-        throw error;
-      });
-
-    if (result.affected === 0) {
+    if (!existingUser) {
       throw new NotFoundException({
         message: ERROR_MESSAGES.notFound('id', id, 'user'),
         errorCode: ERROR_MAP.INVALID_ID,
       });
     }
 
-    const user = result.raw[0];
+    const user = await this._userRepository.save({
+      ...existingUser,
+      ...updateData,
+    });
 
     user.updater = await this._userRepository.findOne({
       where: { id: updatedBy as string },
@@ -180,6 +206,22 @@ export class UserService {
     });
 
     return user;
+  }
+
+  async findUpdater(id: User['id']): Promise<User | null> {
+    const exists = await this._userRepository.exists({ where: { id } });
+
+    if (!exists) {
+      throw new NotFoundException({
+        message: ERROR_MESSAGES.notFound('id', id, 'user'),
+        errorCode: ERROR_MAP.INVALID_ID,
+      });
+    }
+
+    return this._userRepository.findOne({
+      where: { id },
+      select: ['id', 'email'],
+    });
   }
 
   async findOneById(id: User['id']): Promise<User> {
