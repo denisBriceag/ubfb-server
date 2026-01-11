@@ -17,7 +17,7 @@ import {
   ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { User } from '@core/entities/user.entity';
+import { User } from '@features/user/entities/user.entity';
 import {
   getSwaggerOperations,
   SWAGGER_CONSTANTS,
@@ -31,10 +31,10 @@ import { UserService } from '../services/user.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { FindManyUsersDto } from '../dto/find-many-users.dto';
-import { Auth } from '../../authentication/decorators/auth.decorator';
-import { AuthType } from '../../authentication/types/auth-type.enum';
-import { ActiveUser } from '../../authentication/decorators/active-user.decorator';
-import { Role } from '../../authentication/decorators/role.decorator';
+import { Auth } from '@core/decorators/auth.decorator';
+import { AuthType } from '@core/types/auth-type.enum';
+import { ActiveUser } from '@core/decorators/active-user.decorator';
+import { Role } from '@core/decorators/role.decorator';
 
 const operations = getSwaggerOperations(FEATURES.USER);
 
@@ -45,7 +45,7 @@ export class UserController {
   constructor(private readonly _userService: UserService) {}
 
   @Post()
-  @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
+  @Role(Roles.SUPER_ADMIN)
   @ApiOperation({
     summary: operations.CREATE_NEW,
   })
@@ -61,12 +61,12 @@ export class UserController {
   async create(
     @Body() createUserDto: CreateUserDto,
     @ActiveUser('sub') currentUserId: string,
-  ): Promise<User> {
-    return this._userService.create(createUserDto, currentUserId);
+  ): Promise<Omit<User, 'password'> | User> {
+    return this._userService.create(createUserDto, false, currentUserId, true);
   }
 
   @Get()
-  @Role(Roles.SUPER_ADMIN, Roles.ADMIN, Roles.USER)
+  @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({
     summary: operations.GET_ALL_WITH_PAG,
   })
@@ -86,7 +86,7 @@ export class UserController {
   }
 
   @Get(':id')
-  @Role(Roles.SUPER_ADMIN, Roles.ADMIN, Roles.USER)
+  @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: operations.GET_BY_ID })
   @ApiParam({ name: 'id', description: 'User ID', type: String })
   @ApiResponse({
@@ -144,7 +144,7 @@ export class UserController {
   }
 
   @Delete(':id/soft')
-  @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
+  @Role(Roles.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: operations.SOFT_DELETE_BY_ID })
   @ApiParam({ name: 'id', description: 'User ID', type: String })
@@ -163,9 +163,35 @@ export class UserController {
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async softDelete(
     @Param('id') id: string,
-    @ActiveUser('sub') currentUserId: string,
+    @ActiveUser('sub') currentUserId: User['updatedBy'],
+    @ActiveUser('role') currentUserRole: User['role'],
   ): Promise<void> {
-    return this._userService.softDelete(id, currentUserId);
+    return this._userService.softDelete(id, currentUserId, currentUserRole);
+  }
+
+  @Patch(':id/restore')
+  @Role(Roles.SUPER_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: operations.RESTORE_BY_ID })
+  @ApiParam({ name: 'id', description: 'User ID', type: String })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: SWAGGER_RES_DESCRIPTIONS.RESTORED_SUCCESS,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
+  @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
+  async restore(
+    @Param('id') id: User['id'],
+    @ActiveUser('sub') currentUserId: User['updatedBy'],
+  ): Promise<void> {
+    return this._userService.restore(id, currentUserId);
   }
 
   @Delete(':id/hard')
@@ -192,7 +218,11 @@ export class UserController {
     ),
   })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  async hardDelete(@Param('id') id: string): Promise<void> {
-    return this._userService.hardDelete(id);
+  async hardDelete(
+    @Param('id') id: string,
+    @ActiveUser('sub') currentUserId: User['id'],
+    @ActiveUser('role') currentUserRole: User['role'],
+  ): Promise<void> {
+    return this._userService.hardDelete(id, currentUserId, currentUserRole);
   }
 }
