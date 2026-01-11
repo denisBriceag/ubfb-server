@@ -5,7 +5,6 @@ import { swaggerAdminConfig } from '@core/swagger/admin.config';
 import { swaggerStoreConfig } from '@core/swagger/store.config';
 import { AdminModule } from './domains/admin/admin.module';
 import { StoreModule } from './domains/store/store.module';
-import { HttpExceptionFilter } from '@core/exceptions/exceptions.filter';
 import { ValidationPipe } from '@nestjs/common';
 import { exceptionFactory } from '@core/exceptions/exception-factory.filter';
 
@@ -57,8 +56,6 @@ async function bootstrap() {
     },
   });
   SwaggerModule.setup('api/store', app, documentStore);
-
-  app.useGlobalFilters(new HttpExceptionFilter());
 
   await app.listen(process.env.PORT ?? 3000);
 }

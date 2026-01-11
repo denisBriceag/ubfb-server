@@ -1,5 +1,5 @@
-import { Auth } from '../decorators/auth.decorator';
-import { AuthType } from '../types/auth-type.enum';
+import { Auth } from '@core/decorators/auth.decorator';
+import { AuthType } from '@core/types/auth-type.enum';
 import {
   Body,
   Controller,
@@ -18,7 +18,7 @@ import { CookieService } from '@core/cookies/services/cookie.service';
 import { SignUpDto } from '../dto/sign-up.dto';
 import { AuthResponse } from '../types/auth-response.type';
 import { SignInDto } from '../dto/sign-in.dto';
-import { ActiveUserData } from '../types/active-user-data.type';
+import { ActiveUserData } from '@core/types/active-user-data.type';
 import { getAccessToken } from '@core/utils';
 import { ApiBearerAuth, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';

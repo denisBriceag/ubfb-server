@@ -3,7 +3,10 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
+  Logger,
+  HttpStatus,
 } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import {
   ErrorResponse,
@@ -11,10 +14,14 @@ import {
 } from '@core/types/error-response';
 import { Domains } from '@core/types/domains.enum';
 import { ErrorCause } from '@core/types/error-cause.enum';
-import { ERROR_MAP } from '@core/constants';
+import { ERROR_MAP, ErrorsEnum, REQUEST_USER_KEY } from '@core/constants';
 
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly _logger = new Logger(HttpExceptionFilter.name);
+
+  constructor(private readonly _httpAdapter: HttpAdapterHost) {}
+
   catch(exception: HttpException, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -37,8 +44,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errorResponse.cause = exception!.cause as ErrorCause;
     }
 
+    if (statusCode === HttpStatus.TOO_MANY_REQUESTS) {
+      errorResponse.errorCode = ERROR_MAP.TOO_MANY_REQUESTS;
+      errorResponse.message = ErrorsEnum.TOO_MANY_REQUESTS;
+    }
+
     const responseObject = new ErrorResponse(errorResponse);
 
-    response.status(statusCode).json(responseObject);
+    this._logger.error(
+      `[HTTP Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [Request Author]: ${request[REQUEST_USER_KEY]?.email} | [IP]: ${request.ip} | [IPS]: ${request.ips}`,
+    );
+
+    return this._httpAdapter.httpAdapter.reply(
+      response,
+      responseObject,
+      statusCode,
+    );
   }
 }
