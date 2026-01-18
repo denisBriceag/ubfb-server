@@ -5,12 +5,13 @@ import { APP_FILTER, APP_GUARD, RouterModule } from '@nestjs/core';
 import process from 'node:process';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { appRoutes } from './app.routes';
 import { MailModule } from '@core/mail/mail.module';
 import path from 'node:path';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { HttpExceptionFilter } from '@core/exceptions/exceptions.filter';
 import { TypeOrmExceptionFilter } from '@core/exceptions/typeorm-exceptions.filter';
+import { privateRoutes } from './private.routes';
+import { publicRoutes } from './public.routes';
 
 @Module({
   imports: [
@@ -39,8 +40,8 @@ import { TypeOrmExceptionFilter } from '@core/exceptions/typeorm-exceptions.filt
     MailModule,
     AdminModule,
     StoreModule,
-    RouterModule.register(appRoutes),
-    MailModule,
+    RouterModule.register(privateRoutes),
+    RouterModule.register(publicRoutes),
   ],
   providers: [
     {

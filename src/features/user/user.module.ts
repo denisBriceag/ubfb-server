@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { HashingModule } from '@core/hashing';
@@ -12,21 +12,14 @@ import { UserController } from './controllers/user.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User]), HashingModule],
-  providers: [UserService],
+  providers: [
+    UserService,
+    {
+      provide: DOMAIN,
+      useValue: Domains.ADMIN,
+    },
+  ],
   exports: [UserService],
   controllers: [UserController],
 })
-export class UserModule {
-  static forRoot(domain: Domains): DynamicModule {
-    return {
-      module: UserModule,
-      providers: [
-        {
-          provide: DOMAIN,
-          useValue: domain,
-        },
-        UserService,
-      ],
-    };
-  }
-}
+export class UserModule {}

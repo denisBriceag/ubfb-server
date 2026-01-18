@@ -35,4 +35,8 @@ export class FindManyUsersDto {
   @IsInt()
   @Min(1)
   limit?: number = 10;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  includeDeleted?: boolean = false;
 }
