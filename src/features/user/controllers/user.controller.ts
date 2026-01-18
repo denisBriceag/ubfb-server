@@ -104,7 +104,7 @@ export class UserController {
   })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async findOne(@Param('id') id: string): Promise<User> {
-    return this._userService.findOneById(id);
+    return this._userService.findOneById(id, false);
   }
 
   @Patch(':id')

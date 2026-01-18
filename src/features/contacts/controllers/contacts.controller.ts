@@ -1,33 +1,33 @@
-import { Controller, Get, Post, Patch, Body, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Patch, Post } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiBearerAuth,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiTags,
 } from '@nestjs/swagger';
-import { Maps } from '../entities/maps.entity';
 import {
   getSwaggerOperations,
   SWAGGER_CONSTANTS,
   SWAGGER_RES_DESCRIPTIONS,
 } from '@core/swagger/swagger-descriptions';
-import { Roles } from '@core/types/roles.enum';
 import { FEATURES } from '@core/constants';
-
-import { MapsService } from '../services/maps.service';
-import { CreateMapsCoordsDto } from '../dto/create-maps-coords.dto';
-import { UpdateMapsCoords } from '../dto/update-maps-coords';
-import { AuthType } from '@core/types/auth-type.enum';
-import { Auth } from '@core/decorators/auth.decorator';
-import { Role } from '@core/decorators/role.decorator';
+import { ContactsService } from '@features/contacts/services/contacts.service';
+import { CreateContactsDto } from '@features/contacts/dto/create-contacts.dto';
 import { ActiveUser } from '@core/decorators/active-user.decorator';
+import { Contact } from '@features/contacts/entities/contacts.entity';
+import { Auth } from '@core/decorators/auth.decorator';
+import { AuthType } from '@core/types/auth-type.enum';
+import { Role } from '@core/decorators/role.decorator';
+import { Roles } from '@core/types/roles.enum';
+import { UpdateContactsDto } from '@features/contacts/dto/update-contacts.dto';
+import { Maps } from '@features/maps/entities/maps.entity';
 
-const operations = getSwaggerOperations(FEATURES.MAPS);
+const operations = getSwaggerOperations(FEATURES.CONTACTS);
 
-@ApiTags('Maps')
+@ApiTags('Contacts')
 @Controller('')
-export class MapsController {
-  constructor(private readonly _mapsService: MapsService) {}
+export class ContactsController {
+  constructor(private readonly _contactsService: ContactsService) {}
 
   @Post()
   @Auth(AuthType.Bearer)
@@ -44,11 +44,11 @@ export class MapsController {
     description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
   })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  async createCoords(
-    @Body() createMapsCoordsDto: CreateMapsCoordsDto,
+  createContacts(
+    @Body() createContactsDto: CreateContactsDto,
     @ActiveUser('sub') currentUserId: string,
-  ): Promise<Maps> {
-    return this._mapsService.create(createMapsCoordsDto, currentUserId);
+  ): Promise<Contact> {
+    return this._contactsService.create(createContactsDto, currentUserId);
   }
 
   @Get()
@@ -66,8 +66,8 @@ export class MapsController {
     description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
   })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  async getCoords(): Promise<Maps> {
-    return this._mapsService.getCoords();
+  getContacts(): Promise<Contact> {
+    return this._contactsService.getContacts();
   }
 
   @Patch()
@@ -92,10 +92,10 @@ export class MapsController {
     description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
   })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  async updateCoords(
-    @Body() updateMapsCoords: UpdateMapsCoords,
+  updateContacts(
+    @Body() updateContacts: UpdateContactsDto,
     @ActiveUser('sub') currentUserId: string,
-  ): Promise<Maps> {
-    return this._mapsService.update(updateMapsCoords, currentUserId);
+  ): Promise<Contact> {
+    return this._contactsService.update(updateContacts, currentUserId);
   }
 }

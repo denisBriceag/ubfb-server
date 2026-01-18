@@ -53,8 +53,10 @@ export class AuthenticationService {
         this._jwtConfig,
       );
 
-      const { id, email, name, role } =
-        await this._userService.findOneById(sub);
+      const { id, email, name, role } = await this._userService.findOneById(
+        sub,
+        false,
+      );
 
       return { sub: id, email, name, role };
     } catch {
@@ -243,7 +245,7 @@ export class AuthenticationService {
           errorCode: ERROR_MAP.INVALID_TOKEN_TYPE,
         });
 
-      const user = await this._userService.findOneById(sub);
+      const user = await this._userService.findOneById(sub, false);
 
       const isValid = await this._redisService.validate(
         `${this._redisKey}${user.id}`,

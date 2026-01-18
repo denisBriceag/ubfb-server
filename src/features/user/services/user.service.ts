@@ -224,13 +224,16 @@ export class UserService {
     });
   }
 
-  async findOneById(id: User['id']): Promise<User> {
+  async findOneById(id: User['id'], withDeleted = true): Promise<User> {
     const queryBuilder = this._userRepository
       .createQueryBuilder('user')
-      .withDeleted()
       .leftJoin('user.updater', 'updater')
       .addSelect(['updater.id', 'updater.email'])
       .where('user.id = :id', { id });
+
+    if (withDeleted) {
+      queryBuilder.withDeleted();
+    }
 
     const user = await queryBuilder.getOne();
 
@@ -275,14 +278,18 @@ export class UserService {
     const search = dto?.search;
     const sortBy = dto?.sortBy ?? UserSortBy.CREATED_AT;
     const sortOrder = dto?.sortOrder ?? SortOrder.DESC;
+    const withDeleted = dto?.includeDeleted ?? false;
     const page = dto?.page ?? this._defaultPage;
     const limit = dto?.limit ?? this._defaultLimit;
 
     const queryBuilder = this._userRepository
       .createQueryBuilder('user')
-      .withDeleted() // Include soft-deleted users
       .leftJoin('user.updater', 'updater')
       .addSelect(['updater.id', 'updater.email']);
+
+    if (withDeleted) {
+      queryBuilder.withDeleted();
+    }
 
     if (search) {
       queryBuilder.andWhere(
