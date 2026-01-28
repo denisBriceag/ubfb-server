@@ -21,6 +21,7 @@ import { Role } from '@core/decorators/role.decorator';
 import { Roles } from '@core/types/roles.enum';
 import { UpdateContactsDto } from '@features/contacts/dto/update-contacts.dto';
 import { Maps } from '@features/maps/entities/maps.entity';
+import { ContactResponse } from '@features/contacts/models/contacts-response.model';
 
 const operations = getSwaggerOperations(FEATURES.CONTACTS);
 
@@ -66,7 +67,7 @@ export class ContactsController {
     description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
   })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  getContacts(): Promise<Contact> {
+  getContacts(): Promise<Contact | ContactResponse> {
     return this._contactsService.getContacts();
   }
 

@@ -12,7 +12,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { ErrorsEnum } from '@core/constants';
+import { ERROR_MAP, ERROR_MESSAGES, ErrorsEnum } from '@core/constants';
 import { Images } from '@core/types/images';
 import { ImageSet } from '../types/image-set';
 import { Readable } from 'stream';
@@ -52,24 +52,27 @@ export class S3Service {
   ): Promise<string> {
     const metadata = await sharp(file.buffer).metadata();
     const minimumImageWidth =
-      this._sizes.find((s) => s.label === 'phone_portrait')?.width ?? 480;
+      this._sizes.find((s) => s.label === 'desktop')?.width ?? 1280;
 
     if (!metadata.width) {
-      throw new NotAcceptableException(
-        `Image must contain width in it's metadata`,
-      );
+      throw new NotAcceptableException({
+        message: ErrorsEnum.IMAGE_WITHOUT_WIDTH,
+        errorCode: ERROR_MAP.IMAGE_WITHOUT_WIDTH,
+      });
     }
 
     if (metadata.width < minimumImageWidth) {
-      throw new NotAcceptableException(
-        `Please upload an image at least ${minimumImageWidth}px wide for best quality`,
-      );
+      throw new NotAcceptableException({
+        message: ERROR_MESSAGES.imageMinimumWidth(minimumImageWidth),
+        errorCode: ERROR_MAP.IMAGE_MINIMUM_WIDTH,
+      });
     }
 
     if (file?.originalname.split('.').length > 2) {
-      throw new NotAcceptableException(
-        `The image name should not have any dots in it's name.`,
-      );
+      throw new NotAcceptableException({
+        message: ErrorsEnum.IMAGE_NO_DOTS,
+        errorCode: ERROR_MAP.IMAGE_NO_DOTS,
+      });
     }
 
     let key = `${feature}/${crypto.randomUUID()}-${file?.originalname.replace(/\s/g, '')}`;
@@ -197,9 +200,10 @@ export class S3Service {
 
       await this._s3Client.send(command);
     } catch (error) {
-      Logger.error(ErrorsEnum.S3_UPLOAD_FAILED, error);
-
-      throw new InternalServerErrorException(ErrorsEnum.S3_UPLOAD_FAILED);
+      throw new InternalServerErrorException({
+        message: ErrorsEnum.S3_UPLOAD_FAILED,
+        errorCode: ERROR_MAP.S3_UPLOAD_FAILED,
+      });
     }
   }
 
