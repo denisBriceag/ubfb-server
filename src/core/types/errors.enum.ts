@@ -49,6 +49,8 @@ export enum ErrorsEnum {
   ALCOHOL_PERCENTAGE_WRONG_DECIMAL_PLACES = 'Alcohol percentage must be a number with up to 1 decimal place',
   ALCOHOL_PERCENTAGE_NON_NEGATIVE = 'Alcohol percentage cannot be negative',
   ALCOHOL_PERCENTAGE_NO_EXCEED = 'Alcohol percentage cannot exceed 100',
+  IMAGE_WITHOUT_WIDTH = "Image must contain width in it's metadata",
+  IMAGE_NO_DOTS = "The image name should not have any dots in it's name.",
 }
 
 export const ERROR_MAP = {
@@ -104,6 +106,9 @@ export const ERROR_MAP = {
     'ALCOHOL_PERCENTAGE_WRONG_DECIMAL_PLACES',
   ALCOHOL_PERCENTAGE_NON_NEGATIVE: 'ALCOHOL_PERCENTAGE_NON_NEGATIVE',
   ALCOHOL_PERCENTAGE_NO_EXCEED: 'ALCOHOL_PERCENTAGE_NO_EXCEED',
+  IMAGE_WITHOUT_WIDTH: 'IMAGE_WITHOUT_WIDTH',
+  IMAGE_MINIMUM_WIDTH: 'IMAGE_MINIMUM_WIDTH',
+  IMAGE_NO_DOTS: 'IMAGE_NO_DOTS',
 } as const;
 
 export const ERROR_MESSAGES = {
@@ -116,4 +121,6 @@ export const ERROR_MESSAGES = {
     `A record with the same "${field ? field : 'field'}" already exists.`,
   notNullViolation: (column?: string) =>
     `Field "${column ? column : 'column'}" is required. A required field is missing.`,
+  imageMinimumWidth: (width: number) =>
+    `Please upload an image at least ${width}px wide for best quality`,
 };
