@@ -9,6 +9,9 @@ import { FEATURES } from '@core/constants';
 import { ContactsService } from '@features/contacts/services/contacts.service';
 import { Auth } from '@core/decorators/auth.decorator';
 import { AuthType } from '@core/types/auth-type.enum';
+import type { Language } from '@core/types/language';
+import { ContactResponse } from '@features/contacts/models/contacts-response.model';
+import { ActiveLang } from '@core/decorators/active-language.decorator';
 
 const operations = getSwaggerOperations(FEATURES.CONTACTS);
 
@@ -30,7 +33,9 @@ export class ContactsPublicController {
     status: HttpStatus.NOT_FOUND,
     description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
   })
-  getContacts(): Promise<Contact> {
-    return this._contactsService.getContacts();
+  getContacts(
+    @ActiveLang() lang: Language,
+  ): Promise<Contact | ContactResponse> {
+    return this._contactsService.getContacts(lang);
   }
 }
