@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"^\\\\.$\\\\|^\\\\.\\\\.$\")",
+      "Bash(psql -U postgres -c \"SELECT 1\")",
+      "Bash(export PGPASSWORD=postgres)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"\\\\l\")",
+      "Bash(export PGPASSWORD=1)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -d ubfb_db 2)",
+      "Bash(1:*)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -d ubfb_db -c \"\\\\dt\")",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -d ubfb_db -c \"\\\\d users\")",
+      "Bash(pnpm run:*)"
+    ]
+  }
+}
