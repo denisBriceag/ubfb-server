@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ERROR_MAP, ErrorsEnum } from '@core/constants';
 import { Product } from './entities/product.entity';
 import { ProductTranslation } from './entities/product-translation.entity';
 import { ProductImage } from './entities/product-image.entity';
@@ -96,7 +97,7 @@ export class ProductsService {
       .orderBy('img.sortOrder', 'ASC')
       .getOne();
 
-    if (!p) throw new NotFoundException('Product not found');
+    if (!p) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
 
     const tr = p.translations[0];
 
@@ -220,7 +221,7 @@ export class ProductsService {
       .orderBy('img.sortOrder', 'ASC')
       .getOne();
 
-    if (!p) throw new NotFoundException('Product not found');
+    if (!p) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return this.formatAdminProductFull(p);
   }
 
@@ -249,7 +250,7 @@ export class ProductsService {
   async update(id: string, dto: UpdateProductDto, currentUserId: string) {
     const product = await this.findProductOrFail(id);
     if (dto.version !== undefined && product.version !== dto.version) {
-      throw new ConflictException('Entity modified by another user. Refresh and retry.');
+      throw new ConflictException({ message: ErrorsEnum.VERSION_MISMATCH, errorCode: ERROR_MAP.VERSION_MISMATCH });
     }
     if (dto.slug && dto.slug !== product.slug) {
       dto.slug = await this.resolveUniqueSlug(dto.slug, id);
@@ -284,9 +285,9 @@ export class ProductsService {
 
   async hardDelete(id: string) {
     const product = await this.productRepo.findOne({ where: { id }, withDeleted: true });
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     if (!product.deletedAt) {
-      throw new BadRequestException('Soft delete first before hard delete');
+      throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
     }
     await this.uploadsService.deleteFolder('products', id);
     await this.productRepo.delete(id);
@@ -325,7 +326,7 @@ export class ProductsService {
     });
 
     if (existingCount + files.length > 5) {
-      throw new BadRequestException('Maximum 5 images per product');
+      throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
     }
 
     const maxSortResult = await this.productImageRepo
@@ -361,7 +362,7 @@ export class ProductsService {
     const img = await this.productImageRepo.findOne({
       where: { id: imageId, productId },
     });
-    if (!img) throw new NotFoundException('Image not found');
+    if (!img) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     if (dto.alt !== undefined) img.alt = dto.alt ?? null;
     if (dto.sortOrder !== undefined) img.sortOrder = dto.sortOrder;
     await this.productImageRepo.save(img);
@@ -373,7 +374,7 @@ export class ProductsService {
     const img = await this.productImageRepo.findOne({
       where: { id: imageId, productId },
     });
-    if (!img) throw new NotFoundException('Image not found');
+    if (!img) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     await this.uploadsService.deleteFile(img.url);
     await this.productImageRepo.delete(imageId);
     await this.productRepo.update(productId, { updatedBy: currentUserId });
@@ -711,7 +712,7 @@ export class ProductsService {
       .where('p.id = :id', { id })
       .andWhere('p.deletedAt IS NULL')
       .getOne();
-    if (!p) throw new NotFoundException('Product not found');
+    if (!p) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return p;
   }
 

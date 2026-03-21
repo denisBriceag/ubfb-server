@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ERROR_MAP, ErrorsEnum } from '@core/constants';
 import { VolumeUnit } from './entities/volume-unit.entity';
 import { VolumeUnitTranslation } from './entities/volume-unit-translation.entity';
 import { Country } from './entities/country.entity';
@@ -71,7 +72,7 @@ export class CatalogService {
   async createVolumeUnit(dto: CreateVolumeUnitDto, currentUserId: string) {
     const existing = await this.vuRepo.findOne({ where: { code: dto.code } });
     if (existing) {
-      throw new ConflictException('Volume unit with this code already exists');
+      throw new ConflictException({ message: ErrorsEnum.GENERIC_CONFLICT_EXCEPTION, errorCode: ERROR_MAP.GENERIC_CONFLICT_EXCEPTION });
     }
     const vu = this.vuRepo.create({ code: dto.code, updatedBy: currentUserId });
     const saved = await this.vuRepo.save(vu);
@@ -95,7 +96,7 @@ export class CatalogService {
   async updateVolumeUnit(id: string, dto: UpdateVolumeUnitDto, currentUserId: string) {
     const vu = await this.findVolumeUnitOrFail(id);
     if (dto.version !== undefined && vu.version !== dto.version) {
-      throw new ConflictException('Entity modified by another user. Refresh and retry.');
+      throw new ConflictException({ message: ErrorsEnum.VERSION_MISMATCH, errorCode: ERROR_MAP.VERSION_MISMATCH });
     }
     if (dto.code) vu.code = dto.code;
     vu.updatedBy = currentUserId;
@@ -133,9 +134,9 @@ export class CatalogService {
 
   async hardDeleteVolumeUnit(id: string) {
     const vu = await this.vuRepo.findOne({ where: { id }, withDeleted: true });
-    if (!vu) throw new NotFoundException('Volume unit not found');
+    if (!vu) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     if (!vu.deletedAt) {
-      throw new BadRequestException('Soft delete first before hard delete');
+      throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
     }
     await this.vuRepo.delete(id);
   }
@@ -146,7 +147,7 @@ export class CatalogService {
       .where('vu.id = :id', { id })
       .andWhere('vu.deletedAt IS NULL')
       .getOne();
-    if (!vu) throw new NotFoundException('Volume unit not found');
+    if (!vu) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return vu;
   }
 
@@ -157,7 +158,7 @@ export class CatalogService {
       .where('vu.id = :id', { id })
       .andWhere('vu.deletedAt IS NULL')
       .getOne();
-    if (!vu) throw new NotFoundException('Volume unit not found');
+    if (!vu) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     const translations: Record<string, any> = {};
     for (const t of vu.translations) {
       translations[t.languageCode] = { label: t.label };
@@ -202,7 +203,7 @@ export class CatalogService {
 
   async createCountry(dto: CreateCountryDto, currentUserId: string) {
     const existing = await this.countryRepo.findOne({ where: { code: dto.code } });
-    if (existing) throw new ConflictException('Country with this code already exists');
+    if (existing) throw new ConflictException({ message: ErrorsEnum.GENERIC_CONFLICT_EXCEPTION, errorCode: ERROR_MAP.GENERIC_CONFLICT_EXCEPTION });
     const country = this.countryRepo.create({ code: dto.code, updatedBy: currentUserId });
     const saved = await this.countryRepo.save(country);
 
@@ -221,7 +222,7 @@ export class CatalogService {
   async updateCountry(id: string, dto: UpdateCountryDto, currentUserId: string) {
     const country = await this.findCountryOrFail(id);
     if (dto.version !== undefined && country.version !== dto.version) {
-      throw new ConflictException('Entity modified by another user. Refresh and retry.');
+      throw new ConflictException({ message: ErrorsEnum.VERSION_MISMATCH, errorCode: ERROR_MAP.VERSION_MISMATCH });
     }
     if (dto.code) country.code = dto.code;
     country.updatedBy = currentUserId;
@@ -259,9 +260,9 @@ export class CatalogService {
 
   async hardDeleteCountry(id: string) {
     const country = await this.countryRepo.findOne({ where: { id }, withDeleted: true });
-    if (!country) throw new NotFoundException('Country not found');
+    if (!country) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     if (!country.deletedAt) {
-      throw new BadRequestException('Soft delete first before hard delete');
+      throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
     }
     await this.countryRepo.delete(id);
   }
@@ -272,7 +273,7 @@ export class CatalogService {
       .where('c.id = :id', { id })
       .andWhere('c.deletedAt IS NULL')
       .getOne();
-    if (!c) throw new NotFoundException('Country not found');
+    if (!c) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return c;
   }
 
@@ -283,7 +284,7 @@ export class CatalogService {
       .where('c.id = :id', { id })
       .andWhere('c.deletedAt IS NULL')
       .getOne();
-    if (!c) throw new NotFoundException('Country not found');
+    if (!c) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     const translations: Record<string, any> = {};
     for (const t of c.translations) {
       translations[t.languageCode] = { name: t.name };

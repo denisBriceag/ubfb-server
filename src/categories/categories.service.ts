@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ERROR_MAP, ErrorsEnum } from '@core/constants';
 import { Category } from './entities/category.entity';
 import { CategoryTranslation } from './entities/category-translation.entity';
 import { AttributeDefinition } from './entities/attribute-definition.entity';
@@ -99,7 +100,7 @@ export class CategoriesService {
       .where('c.id = :id', { id })
       .andWhere('c.deletedAt IS NULL')
       .getOne();
-    if (!cat) throw new NotFoundException('Category not found');
+    if (!cat) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return this.formatAdminCategory(cat);
   }
 
@@ -111,9 +112,9 @@ export class CategoriesService {
         .where('c.id = :id', { id: dto.parentId })
         .andWhere('c.deletedAt IS NULL')
         .getOne();
-      if (!parent) throw new NotFoundException('Parent category not found');
+      if (!parent) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
       if (parent.parentId) {
-        throw new BadRequestException('Max category depth is 2. Parent already has a parent.');
+        throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
       }
     }
 
@@ -136,7 +137,7 @@ export class CategoriesService {
   async update(id: string, dto: UpdateCategoryDto, currentUserId: string) {
     const cat = await this.findCategoryOrFail(id);
     if (dto.version !== undefined && cat.version !== dto.version) {
-      throw new ConflictException('Entity modified by another user. Refresh and retry.');
+      throw new ConflictException({ message: ErrorsEnum.VERSION_MISMATCH, errorCode: ERROR_MAP.VERSION_MISMATCH });
     }
     if (dto.slug && dto.slug !== cat.slug) {
       dto.slug = await this.resolveUniqueSlug(dto.slug, id);
@@ -166,7 +167,7 @@ export class CategoriesService {
       .andWhere('c.isActive = true')
       .getCount();
     if (activeChildCount > 0) {
-      throw new BadRequestException('Category has active subcategories. Delete them first.');
+      throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
     }
     // TODO: reject if has active products (products module not yet written)
     cat.isActive = false;
@@ -177,9 +178,9 @@ export class CategoriesService {
 
   async hardDelete(id: string) {
     const cat = await this.categoryRepo.findOne({ where: { id }, withDeleted: true });
-    if (!cat) throw new NotFoundException('Category not found');
+    if (!cat) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     if (!cat.deletedAt) {
-      throw new BadRequestException('Soft delete first before hard delete');
+      throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
     }
     if (cat.image) {
       await this.uploadsService.deleteFile(cat.image);
@@ -251,7 +252,7 @@ export class CategoriesService {
   ) {
     const attr = await this.findAttrDefOrFail(attrId, categoryId);
     if (dto.version !== undefined && attr.version !== dto.version) {
-      throw new ConflictException('Entity modified by another user. Refresh and retry.');
+      throw new ConflictException({ message: ErrorsEnum.VERSION_MISMATCH, errorCode: ERROR_MAP.VERSION_MISMATCH });
     }
     Object.assign(attr, {
       key: dto.key ?? attr.key,
@@ -301,7 +302,7 @@ export class CategoriesService {
       .where('c.id = :id', { id })
       .andWhere('c.deletedAt IS NULL')
       .getOne();
-    if (!cat) throw new NotFoundException('Category not found');
+    if (!cat) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return cat;
   }
 
@@ -312,7 +313,7 @@ export class CategoriesService {
       .andWhere('a.categoryId = :categoryId', { categoryId })
       .andWhere('a.deletedAt IS NULL')
       .getOne();
-    if (!attr) throw new NotFoundException('Attribute definition not found');
+    if (!attr) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return attr;
   }
 
@@ -323,7 +324,7 @@ export class CategoriesService {
       .where('a.id = :id', { id })
       .andWhere('a.deletedAt IS NULL')
       .getOne();
-    if (!attr) throw new NotFoundException('Attribute definition not found');
+    if (!attr) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return this.formatAdminAttrDef(attr);
   }
 

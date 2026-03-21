@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ERROR_MAP, ErrorsEnum } from '@core/constants';
 import { Brand } from './entities/brand.entity';
 import { BrandTranslation } from './entities/brand-translation.entity';
 import { CreateBrandDto } from './dto/create-brand.dto';
@@ -85,7 +86,7 @@ export class BrandsService {
       .where('b.id = :id', { id })
       .andWhere('b.deletedAt IS NULL')
       .getOne();
-    if (!b) throw new NotFoundException('Brand not found');
+    if (!b) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return this.formatAdminBrand(b);
   }
 
@@ -107,7 +108,7 @@ export class BrandsService {
   async update(id: string, dto: UpdateBrandDto, currentUserId: string) {
     const brand = await this.findBrandOrFail(id);
     if (dto.version !== undefined && brand.version !== dto.version) {
-      throw new ConflictException('Entity modified by another user. Refresh and retry.');
+      throw new ConflictException({ message: ErrorsEnum.VERSION_MISMATCH, errorCode: ERROR_MAP.VERSION_MISMATCH });
     }
     if (dto.slug && dto.slug !== brand.slug) {
       dto.slug = await this.resolveUniqueSlug(dto.slug, id);
@@ -136,9 +137,9 @@ export class BrandsService {
 
   async hardDelete(id: string) {
     const brand = await this.brandRepo.findOne({ where: { id }, withDeleted: true });
-    if (!brand) throw new NotFoundException('Brand not found');
+    if (!brand) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     if (!brand.deletedAt) {
-      throw new BadRequestException('Soft delete first before hard delete');
+      throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
     }
     if (brand.logo) {
       await this.uploadsService.deleteFile(brand.logo);
@@ -173,7 +174,7 @@ export class BrandsService {
       .where('b.id = :id', { id })
       .andWhere('b.deletedAt IS NULL')
       .getOne();
-    if (!b) throw new NotFoundException('Brand not found');
+    if (!b) throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
     return b;
   }
 

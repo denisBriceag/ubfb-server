@@ -103,6 +103,34 @@ Each feature has a base module (`*.module.ts` — service + entities) and two th
 - `helpers/flatten-translation.helper.ts` — merges translation row into entity for public responses
 - `helpers/delta-to-text.helper.ts` — extracts plain text from Quill Delta JSON
 
-**Uploads** (`src/uploads/`): local filesystem at `./public/uploads/:entity/:id/`, served at `/uploads/...`. Methods: `saveFiles`, `deleteFile`, `deleteFolder`.
+**Uploads** (`src/uploads/`): delegates to `S3Service`. Methods: `saveFiles`, `deleteFile`, `deleteFolder` (no-op).
 
 **Seeder:** `pnpm run seed` — idempotent, seeds languages, volume units, countries, brands, categories (with attribute definitions for coffee/tea), and 15 products.
+
+## Error Handling
+
+Exception filters are registered globally as `APP_FILTER` in `app.module.ts`:
+- **`HttpExceptionFilter`** — catches all `HttpException`s; reads `errorCode` from the response object
+- **`TypeOrmExceptionFilter`** — catches TypeORM errors and maps PostgreSQL error codes to HTTP responses
+- **`exception-factory.filter.ts`** — formats `class-validator` errors with `errorCode: ERROR_MAP.VALIDATION_ERROR`
+
+**All `throw` statements in services must use the structured object form** so that `HttpExceptionFilter` can read `errorCode` via `exception.getResponse()['errorCode']`:
+
+```typescript
+import { ERROR_MAP, ErrorsEnum } from '@core/constants';
+
+// NOT this:
+throw new NotFoundException('Brand not found');
+
+// Always this:
+throw new NotFoundException({ message: ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION, errorCode: ERROR_MAP.GENERIC_NOT_FOUND_EXCEPTION });
+```
+
+**Standard mappings:**
+
+| Scenario | Exception | `ErrorsEnum` / `ERROR_MAP` key |
+|---|---|---|
+| Entity not found | `NotFoundException` | `GENERIC_NOT_FOUND_EXCEPTION` |
+| Optimistic lock version mismatch | `ConflictException` | `VERSION_MISMATCH` |
+| Duplicate record (code/slug) | `ConflictException` | `GENERIC_CONFLICT_EXCEPTION` |
+| Invalid operation (business rule) | `BadRequestException` | `OPERATION_ERROR` |

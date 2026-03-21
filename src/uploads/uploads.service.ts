@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ERROR_MAP, ErrorsEnum } from '@core/constants';
 import { S3Service } from '@features/s3/services/s3.service';
 
 @Injectable()
@@ -20,9 +21,7 @@ export class UploadsService {
 
     for (const file of files) {
       if (!this.allowedMimes.includes(file.mimetype)) {
-        throw new BadRequestException(
-          `Invalid file type: ${file.mimetype}. Only JPEG, PNG, WEBP allowed.`,
-        );
+        throw new BadRequestException({ message: ErrorsEnum.OPERATION_ERROR, errorCode: ERROR_MAP.OPERATION_ERROR });
       }
 
       const tempUrl = await this.s3Service.uploadTempImage(file, entity);
