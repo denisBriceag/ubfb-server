@@ -4,7 +4,6 @@ export const FEATURES = {
   CONTACTS: 'contacts',
   AUTHENTICATION: 'authentication',
   NEWS: 'news',
-  MAPS: 'maps',
   CAROUSEL: 'carousel',
   PRODUCTS: 'products',
   BRANDS: 'brands',

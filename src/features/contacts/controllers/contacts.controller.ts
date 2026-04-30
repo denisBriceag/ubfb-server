@@ -20,7 +20,6 @@ import { AuthType } from '@core/types/auth-type.enum';
 import { Role } from '@core/decorators/role.decorator';
 import { Roles } from '@core/types/roles.enum';
 import { UpdateContactsDto } from '@features/contacts/dto/update-contacts.dto';
-import { Maps } from '@features/maps/entities/maps.entity';
 import { ContactResponse } from '@features/contacts/models/contacts-response.model';
 
 const operations = getSwaggerOperations(FEATURES.CONTACTS);
@@ -78,7 +77,7 @@ export class ContactsController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: SWAGGER_RES_DESCRIPTIONS.UPDATE_SUCCESS,
-    type: Maps,
+    type: Contact,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
