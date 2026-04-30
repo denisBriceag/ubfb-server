@@ -199,7 +199,7 @@ export class AuthenticationService {
       });
     }
 
-    const user = await this._userService.findOneByEmail(userId, true);
+    const user = await this._userService.findOneById(userId, true);
 
     if (!user) {
       throw new UnauthorizedException({

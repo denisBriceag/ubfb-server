@@ -4,6 +4,7 @@ import {
   FileTypeValidator,
   HttpStatus,
   Param,
+  ParseEnumPipe,
   ParseFilePipe,
   Post,
   UploadedFile,
@@ -11,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { S3Service } from '../services/s3.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Images } from '@core/types/images';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -80,7 +80,7 @@ export class S3Controller {
       }),
     )
     file: Express.Multer.File,
-    @Param('feature') feature: string,
+    @Param('feature', new ParseEnumPipe(FEATURES)) feature: string,
   ): Promise<TempImage> {
     const tempUrl = await this._s3Service.uploadTempImage(file, feature);
 
@@ -103,8 +103,8 @@ export class S3Controller {
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async upload(
     @Body() { url }: CreateImageDto,
-    @Param('feature') feature: string,
-  ): Promise<Images> {
+    @Param('feature', new ParseEnumPipe(FEATURES)) feature: string,
+  ): Promise<string> {
     return await this._s3Service.promoteTempImage(url, feature);
   }
 }

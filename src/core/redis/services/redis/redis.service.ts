@@ -8,7 +8,7 @@ import Redis from 'ioredis';
 import { redisConfig } from '../../configs/redis.config';
 import type { ConfigType } from '@nestjs/config';
 import * as process from 'node:process';
-import { Environment } from '../../../types/environment.enum';
+import { Environment } from '@core/types/environment.enum';
 
 export class InvalidatedRefreshTokenError extends Error {}
 
@@ -52,6 +52,8 @@ export class RedisService
         millisecondsToken,
         milliseconds,
       );
+
+      return;
     }
     await this._redisClient.set(`${id}`, value);
   }

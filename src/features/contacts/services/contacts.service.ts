@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { Repository } from 'typeorm';
@@ -36,17 +31,6 @@ export class ContactsService {
     createContactsDto: CreateContactsDto,
     updatedBy: string,
   ): Promise<Contact> {
-    const existingContact = await this._contactRepository.findOne({
-      where: {},
-    });
-
-    if (existingContact) {
-      throw new ConflictException({
-        message: ErrorsEnum.RESOURCE_ALREADY_EXISTS,
-        errorCode: ERROR_MAP.GENERIC_CONFLICT_EXCEPTION,
-      });
-    }
-
     const savedContact = await this._contactRepository.save({
       ...createContactsDto,
       updatedBy,
