@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   VersionColumn,
 } from 'typeorm';
+import { Exclude } from 'class-transformer';
 
 export class BaseEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -14,6 +15,7 @@ export class BaseEntity {
   @VersionColumn({ default: 1 })
   version: number;
 
+  @Exclude()
   @Column({ type: 'uuid', nullable: true })
   updatedBy: string | null;
 

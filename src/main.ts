@@ -5,11 +5,17 @@ import { swaggerAdminConfig } from '@core/swagger/admin.config';
 import { swaggerStoreConfig } from '@core/swagger/store.config';
 import { AdminModule } from './domains/admin/admin.module';
 import { StoreModule } from './domains/store/store.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { exceptionFactory } from '@core/exceptions/exception-factory.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  /**
+   * Setup class serializer for field excluding
+   * */
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   /**
    * Setup validators for class validators
