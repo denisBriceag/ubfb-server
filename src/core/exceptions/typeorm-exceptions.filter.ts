@@ -84,7 +84,7 @@ export class TypeOrmExceptionFilter implements ExceptionFilter {
           constraint: exception.driverError.constraint,
           table: exception.driverError.table,
           column: this._extractUniqueField(exception.driverError.detail),
-          requestAuthor: request[REQUEST_USER_KEY].email,
+          requestAuthor: request[REQUEST_USER_KEY]?.email,
         },
         'Database query failed',
       );
@@ -102,7 +102,7 @@ export class TypeOrmExceptionFilter implements ExceptionFilter {
       errorResponse.message = ErrorsEnum.VERSION_MISMATCH;
 
       this._logger.error(
-        `[TypeORM Exception]: Version mismatch while updating entity. | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [Request Author]: ${request[REQUEST_USER_KEY].email}`,
+        `[TypeORM Exception]: Version mismatch while updating entity. | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [Request Author]: ${request[REQUEST_USER_KEY]?.email}`,
       );
 
       return this._httpAdapter.httpAdapter.reply(

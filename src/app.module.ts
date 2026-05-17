@@ -26,7 +26,7 @@ import { publicRoutes } from './public.routes';
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || '',
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production',
       ssl: false,
     }),
     ThrottlerModule.forRoot({

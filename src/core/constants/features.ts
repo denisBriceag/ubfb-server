@@ -7,4 +7,11 @@ export const FEATURES = {
   CAROUSEL: 'carousel',
   PRODUCTS: 'products',
   BRANDS: 'brands',
+  COUNTRY: 'country',
+  BRAND: 'brand',
+  PACKAGING_TYPE: 'packaging_type',
+  CATEGORY: 'category',
+  PRODUCT: 'product',
+  PRODUCT_VARIANT: 'product_variant',
+  PRODUCT_COLLECTION: 'product_collection',
 } as const;

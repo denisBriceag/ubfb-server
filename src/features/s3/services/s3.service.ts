@@ -39,6 +39,32 @@ export class S3Service {
     });
   }
 
+  isTempUrl(url: string): boolean {
+    return url.includes(this._s3Config.bucket_name_temp);
+  }
+
+  async resolveImage(
+    incoming: string | null | undefined,
+    existing: string | null,
+    feature: string,
+  ): Promise<string | null> {
+    if (incoming === undefined) return existing;
+
+    if (incoming === null) {
+      if (existing) await this.deleteImages([existing]);
+
+      return null;
+    }
+
+    if (this.isTempUrl(incoming)) {
+      if (existing) await this.deleteImages([existing]);
+
+      return this.promoteTempImage(incoming, feature);
+    }
+
+    return incoming;
+  }
+
   async uploadTempImage(
     file: Express.Multer.File,
     feature: string,
@@ -105,7 +131,9 @@ export class S3Service {
         }),
       );
     } catch {
-      this._logger.warn(`Failed to delete temp image after promotion: ${sourceKey}`);
+      this._logger.warn(
+        `Failed to delete temp image after promotion: ${sourceKey}`,
+      );
     }
 
     return `${this._s3Config.cloudfront_url}/${destKey}`;

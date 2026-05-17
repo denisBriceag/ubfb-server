@@ -18,4 +18,4 @@ import { UserModule } from '@features/user/user.module';
   ],
   controllers: [ContactsPublicController],
 })
-export class ContactsPublicModule {}
+export class ContactsStoreModule {}
