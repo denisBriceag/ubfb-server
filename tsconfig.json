@@ -13,10 +13,9 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": ".",
     "paths": {
-      "@core/*": ["src/core/*"],
-      "@features/*": ["src/features/*"]
+      "@core/*": ["./src/core/*"],
+      "@features/*": ["./src/features/*"]
     },
     "incremental": true,
     "skipLibCheck": true,
@@ -24,7 +23,9 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "strictPropertyInitialization": false,
+    "useUnknownInCatchVariables": false
   },
   "ts-node": {
     "require": ["tsconfig-paths/register"]
