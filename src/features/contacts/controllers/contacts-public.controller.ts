@@ -11,7 +11,7 @@ import { Auth } from '@core/decorators/auth.decorator';
 import { AuthType } from '@core/types/auth-type.enum';
 import type { Language } from '@core/types/language';
 import { ContactResponse } from '@features/contacts/models/contacts-response.model';
-import { ActiveLang } from '@core/decorators/active-language.decorator';
+import { ActiveLanguage } from '@core/decorators/active-language.decorator';
 
 const operations = getSwaggerOperations(FEATURES.CONTACTS);
 
@@ -34,7 +34,7 @@ export class ContactsPublicController {
     description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
   })
   getContacts(
-    @ActiveLang() lang: Language,
+    @ActiveLanguage() lang: Language,
   ): Promise<Contact | ContactResponse> {
     return this._contactsService.getContacts(lang);
   }
