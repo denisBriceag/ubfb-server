@@ -8,6 +8,7 @@ export enum TokenTypes {
 export type TokenSignature = {
   sub: string;
   name: string;
+  surname: string;
   email: string;
   role: Roles;
   jti: string;

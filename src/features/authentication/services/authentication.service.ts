@@ -53,12 +53,10 @@ export class AuthenticationService {
         this._jwtConfig,
       );
 
-      const { id, email, name, role } = await this._userService.findOneById(
-        sub,
-        false,
-      );
+      const { id, email, name, surname, role } =
+        await this._userService.findOneById(sub, false);
 
-      return { sub: id, email, name, role };
+      return { sub: id, email, name, surname, role };
     } catch {
       throw new UnauthorizedException({
         message: ErrorsEnum.USER_DOES_NO_EXIST,
@@ -299,6 +297,7 @@ export class AuthenticationService {
         {
           email: user.email,
           name: user.name,
+          surname: user.surname,
           role: user.role,
           jti: accessJti,
           typ: TokenTypes.ACCESS,
