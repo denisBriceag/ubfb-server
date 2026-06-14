@@ -336,4 +336,9 @@ export class UserService {
       totalPages,
     };
   }
+
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const hashed = await this._hashingService.hash(newPassword);
+    await this._userRepository.update({ id: userId }, { password: hashed });
+  }
 }
