@@ -3,6 +3,7 @@ import { mailConfig } from '@core/mail/configs/mail.config';
 import type { ConfigType } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
 import { EmailSubject } from '@core/mail/enums/mail-subject.enum';
+import { EmailText } from '@core/mail/enums/mail-text.enum';
 
 @Injectable()
 export class MailService {
@@ -12,12 +13,12 @@ export class MailService {
     private readonly _config: ConfigType<typeof mailConfig>,
   ) {}
 
-  sendPasswordResetEmail(emailTo: string): Promise<void> {
+  sendPasswordResetEmail(emailTo: string, resetLink: string): Promise<void> {
     return this._mailerService.sendMail({
       to: emailTo,
       from: this._config.fromName,
       subject: EmailSubject.PASSWORD_RESET,
-      text: EmailSubject.PASSWORD_RESET,
+      text: `${EmailText.PASSWORD_RESET}${resetLink}`,
     });
   }
 }
