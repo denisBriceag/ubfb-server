@@ -36,6 +36,8 @@ export class AuthenticationService {
   private readonly _redisDenyKey = 'deny:at:';
   private readonly _passResetKey = 'pass:reset:';
   private readonly _passResetTtl = 15 * 60 * 1000; // 15 mins
+  private readonly _DUMMY_HASH =
+    '$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
 
   constructor(
     @Inject(jwtConfig.KEY)
@@ -89,28 +91,25 @@ export class AuthenticationService {
   }
 
   async signIn(signInDto: SignInDto): Promise<AuthResponse> {
-    const user = await this._userService.findOneByEmail(signInDto.email, true);
+    const invalidCredentials = new UnauthorizedException({
+      message: ErrorsEnum.INVALID_CREDENTIALS,
+      errorCode: ERROR_MAP.INVALID_CREDENTIALS,
+    });
 
-    if (!user) {
-      throw new UnauthorizedException({
-        message: ErrorsEnum.USER_DOES_NO_EXIST,
-        errorCode: ERROR_MAP.USER_DOES_NO_EXIST,
-      });
-    }
+    let user: User | null = null;
+
+    try {
+      user = await this._userService.findOneByEmail(signInDto.email, true);
+    } catch {}
 
     const isEqual = await this._hashingService.compare(
       signInDto.password,
-      user.password,
+      user?.password ?? this._DUMMY_HASH,
     );
 
-    if (!isEqual) {
-      throw new UnauthorizedException({
-        message: ErrorsEnum.PASS_DOES_NOT_MATCH,
-        errorCode: ERROR_MAP.PASS_DOES_NOT_MATCH,
-      });
-    }
+    if (!user || !isEqual) throw invalidCredentials;
 
-    return await this._generateTokens(user);
+    return this._generateTokens(user);
   }
 
   async signOut(refreshToken: string, accessToken?: string): Promise<void> {
