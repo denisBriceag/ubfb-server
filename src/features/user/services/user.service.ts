@@ -250,13 +250,17 @@ export class UserService {
   async findOneByEmail(
     email: User['email'],
     withPassword = false,
+    withDeleted = false,
   ): Promise<User> {
     const queryBuilder = this._userRepository
       .createQueryBuilder('user')
-      .withDeleted()
       .leftJoin('user.updater', 'updater')
       .addSelect(['updater.id', 'updater.email'])
       .where('user.email = :email', { email });
+
+    if (withDeleted) {
+      queryBuilder.withDeleted();
+    }
 
     if (withPassword) {
       queryBuilder.addSelect('user.password');
