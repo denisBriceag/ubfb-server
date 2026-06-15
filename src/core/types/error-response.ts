@@ -1,8 +1,7 @@
 import { Domains } from '@core/types/domains.enum';
 import { IntrinsicException } from '@nestjs/common/exceptions/intrinsic.exception';
 import { ErrorCause } from '@core/types/error-cause.enum';
-import { HttpException } from '@nestjs/common';
-import { ERROR_MAP, ErrorsEnum } from '@core/constants';
+import { ERROR_MAP } from '@core/constants';
 
 export interface ErrorResponseOptions extends ErrorOptions {
   domain: Domains;

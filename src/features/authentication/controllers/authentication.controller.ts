@@ -99,7 +99,6 @@ export class AuthenticationController {
   }
 
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('access-token')
   @ApiCookieAuth(REFRESH_TOKEN_KEY)
   @Get('refresh-tokens')
   async refreshTokens(

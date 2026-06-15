@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { User } from '@features/user/entities/user.entity';
@@ -13,6 +14,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RedisService } from '@core/redis';
 import { getAccessToken } from '@core/utils';
 import { ERROR_MAP, ErrorsEnum } from '@core/constants';
+import { Roles } from '@core/types/roles.enum';
 import { SignInDto } from '../dto/sign-in.dto';
 import { SignUpDto } from '../dto/sign-up.dto';
 import {
@@ -29,6 +31,7 @@ import { UserService } from '@features/user/services/user.service';
 
 @Injectable()
 export class AuthenticationService {
+  private readonly _logger = new Logger(AuthenticationService.name);
   private readonly _redisKey = 'user-';
   private readonly _redisDenyKey = 'deny:at:';
   private readonly _passResetKey = 'pass:reset:';
@@ -67,7 +70,10 @@ export class AuthenticationService {
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponse> {
     try {
-      const user = (await this._userService.create(signUpDto, true)) as User;
+      const user = (await this._userService.create(
+        { ...signUpDto, role: Roles.USER },
+        true,
+      )) as User;
 
       return await this._generateTokens(user);
     } catch (err) {
@@ -169,11 +175,26 @@ export class AuthenticationService {
    * @todo We need to hash userId in the token, so it will be available for updater information.
    * */
   async requestPasswordReset(email: string): Promise<void> {
-    const user = await this._userService.findOneByEmail(email);
+    let user: User;
 
-    if (!user) return;
+    try {
+      user = await this._userService.findOneByEmail(email);
+    } catch {
+      return;
+    }
+
+    const existingToken = await this._redisService.get(
+      `${this._passResetKey}user:${user.id}`,
+    );
+
+    if (existingToken !== 'null') {
+      await this._redisService.invalidate(
+        `${this._passResetKey}${existingToken}`,
+      );
+    }
 
     const resetToken = crypto.randomUUID();
+    const resetLink = `${this._jwtConfig.frontendUrl}/auth/reset-password?token=${resetToken}`;
 
     await this._redisService.set(
       `${this._passResetKey}${resetToken}`,
@@ -182,7 +203,14 @@ export class AuthenticationService {
       this._passResetTtl,
     );
 
-    await this._mailService.sendPasswordResetEmail(email);
+    await this._redisService.set(
+      `${this._passResetKey}user:${user.id}`,
+      resetToken,
+      'PX',
+      this._passResetTtl,
+    );
+
+    await this._mailService.sendPasswordResetEmail(email, resetLink);
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
@@ -190,29 +218,24 @@ export class AuthenticationService {
       `${this._passResetKey}${token}`,
     );
 
-    if (!userId) {
+    if (userId === 'null') {
       throw new UnauthorizedException({
         message: ErrorsEnum.INVALID_RESET_TOKEN,
         errorCode: ERROR_MAP.INVALID_RESET_TOKEN,
       });
     }
 
-    const user = await this._userService.findOneById(userId, true);
+    const user = await this._userService.findOneById(userId, false);
 
-    if (!user) {
-      throw new UnauthorizedException({
-        message: ErrorsEnum.USER_DOES_NO_EXIST,
-        errorCode: ERROR_MAP.USER_DOES_NO_EXIST,
-      });
+    await this._userService.updatePassword(user.id, newPassword);
+
+    try {
+      await this._redisService.invalidate(`${this._passResetKey}${token}`);
+      await this._redisService.invalidate(`${this._passResetKey}user:${user.id}`);
+      await this._redisService.invalidate(`${this._redisKey}${user.id}`);
+    } catch (err) {
+      this._logger.error('Redis cleanup failed after password reset', err);
     }
-
-    user.password = await this._hashingService.hash(newPassword);
-
-    await this._userService.create(user);
-
-    await this._redisService.invalidate(`${this._redisKey}${user.id}`);
-
-    await this._redisService.invalidate(`${this._passResetKey}${token}`);
   }
 
   async refreshTokens({

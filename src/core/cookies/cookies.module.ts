@@ -13,14 +13,8 @@ import { CookieService } from './services/cookie.service';
 
 @Global()
 @Module({
-  providers: [
-    { provide: cookieConfig.KEY, useValue: cookieConfig },
-    CookieService,
-  ],
-  exports: [
-    CookieService,
-    { provide: cookieConfig.KEY, useValue: cookieConfig },
-  ],
+  providers: [CookieService],
+  exports: [CookieService],
   imports: [ConfigModule.forFeature(cookieConfig)],
 })
 export class CookiesModule implements NestModule {
