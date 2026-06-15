@@ -3,9 +3,11 @@ import {
   IsEnum,
   IsNotEmpty,
   IsString,
+  Matches,
   MinLength,
 } from 'class-validator';
 import { Roles } from '@core/types/roles.enum';
+import { UBFB_EMAIL_REGEX } from '@core/constants';
 
 export class CreateUserDto {
   @IsEnum(Roles)
@@ -27,7 +29,9 @@ export class CreateUserDto {
   @IsNotEmpty()
   surname: string;
 
-  @IsString()
+  @Matches(UBFB_EMAIL_REGEX, {
+    message: 'email must be a valid @ubfb.md address',
+  })
   @IsEmail()
   @IsNotEmpty()
   email: string;

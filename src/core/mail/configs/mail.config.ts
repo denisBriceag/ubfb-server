@@ -17,7 +17,7 @@ export const mailConfig = registerAs<MailConfig>(MAIL_CONFIG_KEY, () => ({
   port: parseInt(process.env.MAIL_PORT || '587', 10),
   secure: false,
   user: process.env.MAIL_USER || '',
-  password: process.env.MAIL_PASSWORD || '',
+  password: process.env.MAIL_PASS || '',
   fromName: process.env.MAIL_FROM_NAME || 'UBFB Server',
   fromAddress: process.env.MAIL_FROM_ADDRESS || 'noreply@ubfb.md',
 }));

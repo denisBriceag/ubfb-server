@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { User } from '@features/user/entities/user.entity';
@@ -11,9 +12,8 @@ import jwtConfig from '../configs/jwt.config';
 import type { ConfigType } from '@nestjs/config';
 import { HashingService } from '@core/hashing';
 import { JwtService } from '@nestjs/jwt';
-import { RedisService } from '@core/redis';
-import { getAccessToken } from '@core/utils';
-import { ERROR_MAP, ErrorsEnum } from '@core/constants';
+import { InvalidatedRefreshTokenError, RedisService } from '@core/redis';
+import { ERROR_MAP, ErrorsEnum, REQUEST_USER_KEY } from '@core/constants';
 import { Roles } from '@core/types/roles.enum';
 import { SignInDto } from '../dto/sign-in.dto';
 import { SignUpDto } from '../dto/sign-up.dto';
@@ -50,23 +50,22 @@ export class AuthenticationService {
   ) {}
 
   async me(request: Request): Promise<ActiveUserData> {
+    const { sub } = request[REQUEST_USER_KEY] as TokenSignature;
+
     try {
-      const accessToken = getAccessToken(request);
-
-      const { sub } = await this._jwtService.verifyAsync<TokenSignature>(
-        accessToken as string,
-        this._jwtConfig,
-      );
-
       const { id, email, name, surname, role } =
         await this._userService.findOneById(sub, false);
 
       return { sub: id, email, name, surname, role };
-    } catch {
-      throw new UnauthorizedException({
-        message: ErrorsEnum.USER_DOES_NO_EXIST,
-        errorCode: ERROR_MAP.USER_DOES_NO_EXIST,
-      });
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        throw new UnauthorizedException({
+          message: ErrorsEnum.USER_DOES_NO_EXIST,
+          errorCode: ERROR_MAP.USER_DOES_NO_EXIST,
+        });
+      }
+
+      throw err;
     }
   }
 
@@ -230,7 +229,9 @@ export class AuthenticationService {
 
     try {
       await this._redisService.invalidate(`${this._passResetKey}${token}`);
-      await this._redisService.invalidate(`${this._passResetKey}user:${user.id}`);
+      await this._redisService.invalidate(
+        `${this._passResetKey}user:${user.id}`,
+      );
       await this._redisService.invalidate(`${this._redisKey}${user.id}`);
     } catch (err) {
       this._logger.error('Redis cleanup failed after password reset', err);
@@ -248,8 +249,12 @@ export class AuthenticationService {
       });
     }
 
+    let sub: string;
+    let refreshTokenId: string;
+    let typ: string;
+
     try {
-      const { sub, refreshTokenId, typ } =
+      ({ sub, refreshTokenId, typ } =
         await this._jwtService.verifyAsync<RefreshTokenSignature>(
           refreshToken,
           {
@@ -257,55 +262,61 @@ export class AuthenticationService {
             audience: this._jwtConfig.audience,
             issuer: this._jwtConfig.issuer,
           },
-        );
-
-      if (typ !== TokenTypes.REFRESH)
-        throw new UnauthorizedException({
-          message: ErrorsEnum.INVALID_TOKEN_TYPE,
-          errorCode: ERROR_MAP.INVALID_TOKEN_TYPE,
-        });
-
-      const user = await this._userService.findOneById(sub, false);
-
-      const isValid = await this._redisService.validate(
-        `${this._redisKey}${user.id}`,
-        refreshTokenId,
-      );
-
-      await this._redisService.invalidate(`${this._redisKey}${user.id}`);
-
-      if (!isValid) {
-        throw new UnauthorizedException({
-          message: ErrorsEnum.REFRESH_TOKEN_REUSE,
-          errorCode: ERROR_MAP.REFRESH_TOKEN_REUSE,
-        });
-      }
-
-      if (accessToken) {
-        try {
-          const at = await this._jwtService.verifyAsync<TokenSignature>(
-            accessToken,
-            this._jwtConfig,
-          );
-
-          if (at?.jti && at?.exp) {
-            const ttl = Math.max(0, at.exp * 1000 - Date.now());
-            if (ttl > 0) {
-              await this._denyAccessToken(at.jti, ttl);
-            }
-          }
-        } catch {
-          // ignore invalid access token
-        }
-      }
-
-      return this._generateTokens(user);
+        ));
     } catch {
       throw new ForbiddenException({
         message: ErrorsEnum.ACCESS_DENIED,
         errorCode: ERROR_MAP.ACCESS_DENIED,
       });
     }
+
+    if (typ !== TokenTypes.REFRESH) {
+      throw new UnauthorizedException({
+        message: ErrorsEnum.INVALID_TOKEN_TYPE,
+        errorCode: ERROR_MAP.INVALID_TOKEN_TYPE,
+      });
+    }
+
+    const user = await this._userService.findOneById(sub, false);
+
+    try {
+      await this._redisService.validate(
+        `${this._redisKey}${user.id}`,
+        refreshTokenId,
+      );
+    } catch (err) {
+      if (err instanceof InvalidatedRefreshTokenError) {
+        await this._redisService.invalidate(`${this._redisKey}${user.id}`);
+        throw new UnauthorizedException({
+          message: ErrorsEnum.REFRESH_TOKEN_REUSE,
+          errorCode: ERROR_MAP.REFRESH_TOKEN_REUSE,
+        });
+      }
+      throw new ForbiddenException({
+        message: ErrorsEnum.ACCESS_DENIED,
+        errorCode: ERROR_MAP.ACCESS_DENIED,
+      });
+    }
+
+    await this._redisService.invalidate(`${this._redisKey}${user.id}`);
+
+    if (accessToken) {
+      try {
+        const at = await this._jwtService.verifyAsync<TokenSignature>(
+          accessToken,
+          this._jwtConfig,
+        );
+
+        if (at?.jti && at?.exp) {
+          const ttl = Math.max(0, at.exp * 1000 - Date.now());
+          if (ttl > 0) await this._denyAccessToken(at.jti, ttl);
+        }
+      } catch {
+        // ignore invalid access token
+      }
+    }
+
+    return this._generateTokens(user);
   }
 
   private async _generateTokens(user: User): Promise<AuthResponse> {
@@ -336,9 +347,11 @@ export class AuthenticationService {
       ),
     ]);
 
-    await this._redisService.insert(
+    await this._redisService.set(
       `${this._redisKey}${user.id}`,
       refreshTokenId,
+      'PX',
+      this._jwtConfig.refreshTokenTtl * 1000,
     );
 
     return {
