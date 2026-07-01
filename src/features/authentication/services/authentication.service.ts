@@ -29,6 +29,9 @@ import { AuthResponse } from '../types/auth-response.type';
 import { MailService } from '@core/mail/services/mail.service';
 import { UserService } from '@features/user/services/user.service';
 
+const DUMMY_HASH =
+  '$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
+
 @Injectable()
 export class AuthenticationService {
   private readonly _logger = new Logger(AuthenticationService.name);
@@ -36,8 +39,6 @@ export class AuthenticationService {
   private readonly _redisDenyKey = 'deny:at:';
   private readonly _passResetKey = 'pass:reset:';
   private readonly _passResetTtl = 15 * 60 * 1000; // 15 mins
-  private readonly _DUMMY_HASH =
-    '$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
 
   constructor(
     @Inject(jwtConfig.KEY)
@@ -103,7 +104,7 @@ export class AuthenticationService {
 
     const isEqual = await this._hashingService.compare(
       signInDto.password,
-      user?.password ?? this._DUMMY_HASH,
+      user?.password ?? DUMMY_HASH,
     );
 
     if (!user || !isEqual) throw invalidCredentials;
@@ -112,59 +113,46 @@ export class AuthenticationService {
   }
 
   async signOut(refreshToken: string, accessToken?: string): Promise<void> {
+    const {
+      sub: userId,
+      refreshTokenId,
+      typ,
+    } = await this._verifyRefreshToken(refreshToken);
+
+    if (typ !== TokenTypes.REFRESH) {
+      throw new UnauthorizedException({
+        message: ErrorsEnum.INVALID_TOKEN_TYPE,
+        errorCode: ERROR_MAP.INVALID_TOKEN_TYPE,
+      });
+    }
+
     try {
-      const {
-        sub: userId,
-        refreshTokenId,
-        typ,
-      } = await this._jwtService.verifyAsync<RefreshTokenSignature>(
-        refreshToken,
-        {
-          secret: this._jwtConfig.secret,
-          audience: this._jwtConfig.audience,
-          issuer: this._jwtConfig.issuer,
-        },
-      );
-
-      if (typ !== 'refresh')
-        throw new UnauthorizedException({
-          message: ErrorsEnum.INVALID_TOKEN_TYPE,
-          errorCode: ERROR_MAP.INVALID_TOKEN_TYPE,
-        });
-
-      const ok = await this._redisService.validate(
+      await this._redisService.validate(
         `${this._redisKey}${userId}`,
         refreshTokenId,
       );
-
-      if (!ok)
-        throw new UnauthorizedException({
-          message: ErrorsEnum.INVALID_REFRESH_TOKEN,
-          errorCode: ERROR_MAP.INVALID_REFRESH_TOKEN,
-        });
-
-      await this._redisService.invalidate(`${this._redisKey}${userId}`);
-
-      if (accessToken) {
-        try {
-          const at = await this._jwtService.verifyAsync<any>(accessToken, {
-            secret: this._jwtConfig.secret,
-            audience: this._jwtConfig.audience,
-            issuer: this._jwtConfig.issuer,
-          });
-
-          if (at?.jti && at?.exp) {
-            const ttl = Math.max(0, at.exp * 1000 - Date.now());
-
-            if (ttl > 0) await this._denyAccessToken(at.jti, ttl);
-          }
-        } catch {}
-      }
     } catch {
       throw new UnauthorizedException({
         message: ErrorsEnum.INVALID_REFRESH_TOKEN,
         errorCode: ERROR_MAP.INVALID_REFRESH_TOKEN,
       });
+    }
+
+    await this._redisService.invalidate(`${this._redisKey}${userId}`);
+
+    if (accessToken) {
+      try {
+        const at = await this._jwtService.verifyAsync<any>(accessToken, {
+          secret: this._jwtConfig.secret,
+          audience: this._jwtConfig.audience,
+          issuer: this._jwtConfig.issuer,
+        });
+
+        if (at?.jti && at?.exp) {
+          const ttl = Math.max(0, at.exp * 1000 - Date.now());
+          if (ttl > 0) await this._denyAccessToken(at.jti, ttl);
+        }
+      } catch {}
     }
   }
 
@@ -249,26 +237,8 @@ export class AuthenticationService {
       });
     }
 
-    let sub: string;
-    let refreshTokenId: string;
-    let typ: string;
-
-    try {
-      ({ sub, refreshTokenId, typ } =
-        await this._jwtService.verifyAsync<RefreshTokenSignature>(
-          refreshToken,
-          {
-            secret: this._jwtConfig.secret,
-            audience: this._jwtConfig.audience,
-            issuer: this._jwtConfig.issuer,
-          },
-        ));
-    } catch {
-      throw new ForbiddenException({
-        message: ErrorsEnum.ACCESS_DENIED,
-        errorCode: ERROR_MAP.ACCESS_DENIED,
-      });
-    }
+    const { sub, refreshTokenId, typ } =
+      await this._verifyRefreshToken(refreshToken);
 
     if (typ !== TokenTypes.REFRESH) {
       throw new UnauthorizedException({
@@ -358,6 +328,23 @@ export class AuthenticationService {
       accessToken,
       refreshToken,
     };
+  }
+
+  private async _verifyRefreshToken(
+    token: string,
+  ): Promise<RefreshTokenSignature> {
+    try {
+      return await this._jwtService.verifyAsync<RefreshTokenSignature>(token, {
+        secret: this._jwtConfig.secret,
+        audience: this._jwtConfig.audience,
+        issuer: this._jwtConfig.issuer,
+      });
+    } catch {
+      throw new UnauthorizedException({
+        message: ErrorsEnum.INVALID_REFRESH_TOKEN,
+        errorCode: ERROR_MAP.INVALID_REFRESH_TOKEN,
+      });
+    }
   }
 
   private async _signToken<T>(userId: string, expiresIn: number, payload?: T) {

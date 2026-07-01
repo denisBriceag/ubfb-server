@@ -14,7 +14,12 @@ import {
 } from '@core/types/error-response';
 import { Domains } from '@core/types/domains.enum';
 import { ErrorCause } from '@core/types/error-cause.enum';
-import { ERROR_MAP, ErrorsEnum, REQUEST_USER_KEY } from '@core/constants';
+import {
+  ERROR_MAP,
+  ErrorsEnum,
+  REQUEST_USER_KEY,
+  REQUEST_ID_HEADER,
+} from '@core/constants';
 
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -52,7 +57,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const responseObject = new ErrorResponse(errorResponse);
 
     this._logger.error(
-      `[HTTP Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [Request Author]: ${request[REQUEST_USER_KEY]?.email} | [IP]: ${request.ip} | [IPS]: ${request.ips}`,
+      `[HTTP Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [Request Author]: ${request[REQUEST_USER_KEY]?.email} | [IP]: ${request.ip} | [IPS]: ${request.ips} | [Request ID]: ${request[REQUEST_ID_HEADER]}`,
     );
 
     return this._httpAdapter.httpAdapter.reply(

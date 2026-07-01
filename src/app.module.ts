@@ -1,23 +1,29 @@
-import { Module } from '@nestjs/common';
-import { AdminModule } from './domains/admin/admin.module';
-import { StoreModule } from './domains/store/store.module';
 import { APP_FILTER, APP_GUARD, RouterModule } from '@nestjs/core';
-import process from 'node:process';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { MailModule } from '@core/mail/mail.module';
-import path from 'node:path';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+
+import { MailModule } from '@core/mail/mail.module';
 import { HttpExceptionFilter } from '@core/exceptions/exceptions.filter';
 import { TypeOrmExceptionFilter } from '@core/exceptions/typeorm-exceptions.filter';
+
+import { AdminModule } from './domains/admin/admin.module';
+import { StoreModule } from './domains/store/store.module';
 import { privateRoutes } from './private.routes';
 import { publicRoutes } from './public.routes';
+
+import process from 'node:process';
+import path from 'node:path';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       envFilePath: path.join(process.cwd(), `.env.${process.env.NODE_ENV}`),
     }),
+    /**
+     * @todo Move to a separate module with a db config
+     * */
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST,

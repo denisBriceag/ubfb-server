@@ -20,7 +20,7 @@ import {
 import { ERROR_MAP, ERROR_MESSAGES, ErrorsEnum } from '@core/types/errors.enum';
 import { HttpAdapterHost } from '@nestjs/core';
 import { ErrorCause } from '@core/types/error-cause.enum';
-import { REQUEST_USER_KEY } from '@core/constants';
+import { REQUEST_ID_HEADER, REQUEST_USER_KEY } from '@core/constants';
 
 type QueryMappedError = Pick<
   ErrorResponseOptions,
@@ -102,7 +102,7 @@ export class TypeOrmExceptionFilter implements ExceptionFilter {
       errorResponse.message = ErrorsEnum.VERSION_MISMATCH;
 
       this._logger.error(
-        `[TypeORM Exception]: Version mismatch while updating entity. | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [Request Author]: ${request[REQUEST_USER_KEY]?.email}`,
+        `[TypeORM Exception]: Version mismatch while updating entity. | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [Request Author]: ${request[REQUEST_USER_KEY]?.email} | [Request ID]: ${request[REQUEST_ID_HEADER]}`,
       );
 
       return this._httpAdapter.httpAdapter.reply(
@@ -121,7 +121,7 @@ export class TypeOrmExceptionFilter implements ExceptionFilter {
       errorResponse.message = ErrorsEnum.GENERIC_NOT_FOUND_EXCEPTION;
 
       this._logger.error(
-        `[TypeORM Exception]: ${exception.message} | URL: ${this._httpAdapter.httpAdapter.getRequestUrl(request)}`,
+        `[TypeORM Exception]: ${exception.message} | URL: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} [Request ID]: ${request[REQUEST_ID_HEADER]}`,
       );
 
       return this._httpAdapter.httpAdapter.reply(
@@ -132,7 +132,7 @@ export class TypeOrmExceptionFilter implements ExceptionFilter {
     }
 
     this._logger.error(
-      `[TypeORM Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [IP]: ${request.ip} | [IPS]: ${request.ips}`,
+      `[TypeORM Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [IP]: ${request.ip} | [IPS]: ${request.ips} [Request ID]: ${request[REQUEST_ID_HEADER]}`,
       exception.stack,
     );
 

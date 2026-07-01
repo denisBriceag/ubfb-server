@@ -21,6 +21,7 @@ import { SignInDto } from '../dto/sign-in.dto';
 import { ActiveUserData } from '@core/types/active-user-data.type';
 import { getAccessToken } from '@core/utils';
 import { ApiBearerAuth, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 
@@ -43,6 +44,7 @@ export class AuthenticationController {
   }
 
   @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
   @Post('sign-up')
   async signUp(
     @Body() signUpDto: SignUpDto,
@@ -56,6 +58,7 @@ export class AuthenticationController {
     return { accessToken };
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('password-reset-request')
   @HttpCode(HttpStatus.OK)
   async requestPasswordReset(@Body() dto: ForgotPasswordDto): Promise<void> {
@@ -68,7 +71,9 @@ export class AuthenticationController {
     await this._authService.resetPassword(dto.token, dto.newPassword);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
   @Post('sign-in')
   async signIn(
     @Body() signInDto: SignInDto,

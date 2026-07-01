@@ -53,7 +53,7 @@ export class ContactsController {
 
   @Get()
   @Auth(AuthType.Bearer)
-  @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
+  @Role(Roles.SUPER_ADMIN, Roles.ADMIN, Roles.USER)
   @ApiOperation({
     summary: operations.GET_ALL,
   })

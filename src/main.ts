@@ -1,13 +1,16 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { NestFactory, Reflector } from '@nestjs/core';
+import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
+
 import { swaggerAdminConfig } from '@core/swagger/admin.config';
 import { swaggerStoreConfig } from '@core/swagger/store.config';
+import { exceptionFactory } from '@core/exceptions/exception-factory.filter';
+
+import { AppModule } from './app.module';
 import { AdminModule } from './domains/admin/admin.module';
 import { StoreModule } from './domains/store/store.module';
-import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { exceptionFactory } from '@core/exceptions/exception-factory.filter';
+
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +19,15 @@ async function bootstrap() {
    * Setup class serializer for field excluding
    * */
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
+  /**
+   * Setup helmet for security headers
+   * */
+  app.use(
+    helmet({
+      contentSecurityPolicy: process.env.NODE_ENV === 'production',
+    }),
+  );
 
   /**
    * Setup validators for class validators
@@ -33,13 +45,15 @@ async function bootstrap() {
   /**
    * Cors settings setup
    * */
+  const allowedOrigins =
+    process.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) ?? [];
+
+  const allowedMethods =
+    process.env.CORS_METHODS?.split(',').filter(Boolean) ?? [];
+
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:4200',
-      'https://localhost:4200',
-    ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: allowedOrigins,
+    methods: allowedMethods,
     credentials: true,
   });
 

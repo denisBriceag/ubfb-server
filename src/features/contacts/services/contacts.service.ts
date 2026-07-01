@@ -36,9 +36,12 @@ export class ContactsService {
       updatedBy,
     });
 
-    savedContact.updater = await this._userService.findUpdater(updatedBy);
+    const { updatedBy: _, ...contactWithoutUpdatedBy } = savedContact;
 
-    return savedContact;
+    contactWithoutUpdatedBy.updater =
+      await this._userService.findUpdater(updatedBy);
+
+    return contactWithoutUpdatedBy as Contact;
   }
 
   async update(
@@ -63,9 +66,12 @@ export class ContactsService {
       updatedBy,
     });
 
-    updatedContact.updater = await this._userService.findUpdater(updatedBy);
+    const { updatedBy: _, ...contactWithoutUpdatedBy } = updatedContact;
 
-    return updatedContact;
+    contactWithoutUpdatedBy.updater =
+      await this._userService.findUpdater(updatedBy);
+
+    return contactWithoutUpdatedBy as Contact;
   }
 
   async getContacts(lang?: Language): Promise<Contact | ContactResponse> {
