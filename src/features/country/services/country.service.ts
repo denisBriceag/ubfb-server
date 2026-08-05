@@ -1,25 +1,45 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { SortOrder } from '@core/types/sorting-order.enum';
-import { ERROR_MAP, ERROR_MESSAGES } from '@core/types/errors.enum';
+import { ERROR_MAP, ERROR_MESSAGES, ErrorsEnum } from '@core/types/errors.enum';
 import { PaginatedData } from '@core/types/paginted-data';
 import { FEATURES } from '@core/constants';
 import { Language } from '@core/types/language';
 
 import { resolveLocalized } from '@core/utils/resolve-localized.util';
+import { Brand } from '@features/brand/entities/brand.entity';
+import { Product } from '@features/product/entities/product.entity';
 import { Country } from '../entities/country.entity';
 import { CreateCountryDto } from '../dto/create-country.dto';
 import { UpdateCountryDto } from '../dto/update-country.dto';
 import { FindManyCountriesDto } from '../dto/find-many-countries.dto';
 import { FindManyCountriesStoreDto } from '../dto/find-many-countries-store.dto';
+import { SearchCountriesDto } from '../dto/search-countries.dto';
 import { StoreCountryModel } from '../models/store-country.model';
+import { CountrySuggestion } from '../models/country-suggestion.model';
+import {
+  RestCountriesObject,
+  RestCountriesResponse,
+} from '../types/rest-countries.type';
 import { CountrySortBy } from '@features/country/enums/country-sort.enum';
+
+const COUNTRIES_API_URL = 'https://api.restcountries.com/countries/v5';
+const COUNTRIES_API_TIMEOUT_MS = 5000;
 
 @Injectable()
 export class CountryService {
   private readonly _defaultPage = 1;
   private readonly _defaultLimit = 10;
+  private readonly _defaultSearchLimit = 10;
 
   constructor(
     @InjectRepository(Country)
@@ -103,7 +123,47 @@ export class CountryService {
       });
     }
 
+    await this._assertNotReferenced(id);
+
     await this._countryRepository.delete(id);
+  }
+
+  /**
+   * Blocks a hard delete when brands or products still point at the country.
+   * The FK is `NO ACTION`, so the delete would fail at the DB with an opaque
+   * violation; this turns it into a precise, actionable message instead.
+   *
+   * Soft-deleted rows are counted too: they physically remain and still hold
+   * the foreign key, so they block the delete just the same.
+   * */
+  private async _assertNotReferenced(id: string): Promise<void> {
+    const manager = this._countryRepository.manager;
+
+    const [brandCount, productCount] = await Promise.all([
+      manager.count(Brand, { where: { countryId: id }, withDeleted: true }),
+      manager.count(Product, { where: { countryId: id }, withDeleted: true }),
+    ]);
+
+    if (brandCount === 0 && productCount === 0) {
+      return;
+    }
+
+    const parts: string[] = [];
+
+    if (brandCount > 0) {
+      parts.push(`${brandCount} ${brandCount === 1 ? 'brand' : 'brands'}`);
+    }
+
+    if (productCount > 0) {
+      parts.push(
+        `${productCount} ${productCount === 1 ? 'product' : 'products'}`,
+      );
+    }
+
+    throw new ConflictException({
+      message: `Country is referenced by ${parts.join(' and ')} and cannot be deleted.`,
+      errorCode: ERROR_MAP.COUNTRY_IN_USE,
+    });
   }
 
   async findOneById(id: string): Promise<Country> {
@@ -133,13 +193,14 @@ export class CountryService {
     const qb = this._countryRepository
       .createQueryBuilder('country')
       .leftJoin('country.updater', 'updater')
-      .addSelect(['updater.id', 'updater.email'])
-      .orderBy(
-        sortBy === CountrySortBy.NAME
-          ? `country.name->>'${language ?? 'en'}'`
-          : `country.${sortBy}`,
-        sortOrder,
-      );
+      .addSelect(['updater.id', 'updater.email']);
+
+    if (sortBy === CountrySortBy.NAME) {
+      qb.addSelect(`country.name->>'${language ?? 'en'}'`, 'country_name_sort');
+      qb.orderBy('country_name_sort', sortOrder);
+    } else {
+      qb.orderBy(`country.${sortBy}`, sortOrder);
+    }
 
     if (withDeleted) {
       qb.withDeleted();
@@ -202,6 +263,117 @@ export class CountryService {
       total,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  /**
+   * @description Looks up countries in the external REST Countries provider so an admin can
+   * pick one instead of typing the code and names by hand.
+   *
+   * The provider has no Romanian translation for any country, so `name.ro` is
+   * always returned as null and must be filled in before creating the country.
+   * */
+  async search(dto: SearchCountriesDto): Promise<CountrySuggestion[]> {
+    const apiKey = process.env.COUNTRIES_API_KEY;
+
+    if (!apiKey) {
+      throw new InternalServerErrorException({
+        message: ErrorsEnum.COUNTRIES_API_NOT_CONFIGURED,
+        errorCode: ERROR_MAP.COUNTRIES_API_NOT_CONFIGURED,
+      });
+    }
+
+    const limit = dto.limit ?? this._defaultSearchLimit;
+    const url = new URL(COUNTRIES_API_URL);
+
+    url.searchParams.set('q', dto.q);
+    url.searchParams.set('limit', `${limit}`);
+    // Trims the payload: the full record also carries colours and borders.
+    // `flag.emoji` is a nested path, so only the emoji is pulled from `flag`.
+    url.searchParams.set('response_fields', 'names,codes,flag.emoji');
+
+    const payload = await this._fetchCountries(url, apiKey);
+    const suggestions = payload.data.objects.map((object) =>
+      this._toSuggestion(object),
+    );
+
+    return this._markExisting(suggestions);
+  }
+
+  private async _fetchCountries(
+    url: URL,
+    apiKey: string,
+  ): Promise<RestCountriesResponse> {
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(COUNTRIES_API_TIMEOUT_MS),
+      });
+    } catch {
+      throw new BadGatewayException({
+        message: ErrorsEnum.COUNTRIES_API_UNAVAILABLE,
+        errorCode: ERROR_MAP.COUNTRIES_API_UNAVAILABLE,
+      });
+    }
+
+    if (response.status === HttpStatus.TOO_MANY_REQUESTS) {
+      throw new HttpException(
+        {
+          message: ErrorsEnum.TOO_MANY_REQUESTS,
+          errorCode: ERROR_MAP.TOO_MANY_REQUESTS,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (!response.ok) {
+      throw new BadGatewayException({
+        message: ErrorsEnum.COUNTRIES_API_UNAVAILABLE,
+        errorCode: ERROR_MAP.COUNTRIES_API_UNAVAILABLE,
+      });
+    }
+
+    return (await response.json()) as RestCountriesResponse;
+  }
+
+  private _toSuggestion(object: RestCountriesObject): CountrySuggestion {
+    const translations = object.names.translations ?? {};
+
+    return {
+      code: object.codes.alpha_3,
+      name: {
+        en: object.names.official,
+        ro: translations.ron?.official ?? null,
+        ru: translations.rus?.official ?? null,
+      },
+      emoji: object.flag?.emoji ?? null,
+      exists: false,
+    };
+  }
+
+  /**
+   * Soft-deleted countries still occupy the unique `code` index, so they count
+   * as existing — creating one would fail and the admin has to restore instead.
+   * */
+  private async _markExisting(
+    suggestions: CountrySuggestion[],
+  ): Promise<CountrySuggestion[]> {
+    if (!suggestions.length) {
+      return suggestions;
+    }
+
+    const existing = await this._countryRepository.find({
+      where: { code: In(suggestions.map((s) => s.code)) },
+      select: ['code'],
+      withDeleted: true,
+    });
+    const existingCodes = new Set(existing.map((country) => country.code));
+
+    return suggestions.map((suggestion) => ({
+      ...suggestion,
+      exists: existingCodes.has(suggestion.code),
+    }));
   }
 
   private _toStoreCountry(

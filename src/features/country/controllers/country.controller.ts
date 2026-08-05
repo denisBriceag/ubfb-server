@@ -36,6 +36,8 @@ import { CountryService } from '../services/country.service';
 import { CreateCountryDto } from '../dto/create-country.dto';
 import { UpdateCountryDto } from '../dto/update-country.dto';
 import { FindManyCountriesDto } from '../dto/find-many-countries.dto';
+import { SearchCountriesDto } from '../dto/search-countries.dto';
+import { CountrySuggestion } from '../models/country-suggestion.model';
 import { Country } from '../entities/country.entity';
 
 const operations = getSwaggerOperations(FEATURES.COUNTRY);
@@ -69,6 +71,20 @@ export class CountryController {
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async findMany(@Query() dto: FindManyCountriesDto): Promise<PaginatedData<Country>> {
     return this._countryService.findMany(dto);
+  }
+
+  // Must stay above `@Get(':id')`: Nest matches routes in declaration order,
+  // so moving it below would make `/countries/search` resolve as an id.
+  @Get('search')
+  @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
+  @ApiOperation({ summary: 'Search countries in the external provider' })
+  @ApiResponse({ status: HttpStatus.OK })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({ status: HttpStatus.BAD_GATEWAY, description: 'Countries provider is unavailable' })
+  @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
+  async search(@Query() dto: SearchCountriesDto): Promise<CountrySuggestion[]> {
+    return this._countryService.search(dto);
   }
 
   @Get(':id')

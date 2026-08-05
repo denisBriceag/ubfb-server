@@ -87,16 +87,8 @@ export class UserService {
       });
     }
 
-    const userToSoftDelete = {
-      ...user,
-      updatedBy,
-      updater: await this._userRepository.findOne({
-        where: { id: updatedBy as string },
-        select: ['id', 'email'],
-      }),
-    };
-
-    await this._userRepository.softDelete(userToSoftDelete.id);
+    await this._userRepository.update(user.id, { updatedBy });
+    await this._userRepository.softDelete(user.id);
   }
 
   async hardDelete(
@@ -133,7 +125,11 @@ export class UserService {
     await this._userRepository.delete(user.id);
   }
 
-  async restore(id: User['id'], updatedBy: User['updatedBy']): Promise<void> {
+  async restore(
+    id: User['id'],
+    updatedBy: User['updatedBy'],
+    userRole: User['role'],
+  ): Promise<void> {
     const user = await this._userRepository.findOne({
       where: { id },
       withDeleted: true,
@@ -146,16 +142,15 @@ export class UserService {
       });
     }
 
-    const userToSoftDelete = {
-      ...user,
-      updatedBy,
-      updater: await this._userRepository.findOne({
-        where: { id: updatedBy as string },
-        select: ['id', 'email'],
-      }),
-    };
+    if (userRole === user.role) {
+      throw new ForbiddenException({
+        message: ErrorsEnum.NOT_ENOUGH_PERMISSIONS_OPERATION,
+        errorCode: ERROR_MAP.NOT_ENOUGH_PERMISSIONS_OPERATION,
+      });
+    }
 
-    await this._userRepository.restore(userToSoftDelete.id);
+    await this._userRepository.restore(user.id);
+    await this._userRepository.update(user.id, { updatedBy });
   }
 
   async update(
@@ -307,13 +302,14 @@ export class UserService {
 
     // Sorting logic
     if (sortBy === UserSortBy.ROLE) {
-      const roleOrder = `CASE 
+      const roleOrder = `CASE
         WHEN user.role = '${Roles.SUPER_ADMIN}' THEN 1
         WHEN user.role = '${Roles.ADMIN}' THEN 2
         WHEN user.role = '${Roles.USER}' THEN 3
         ELSE 4
       END`;
-      queryBuilder.orderBy(roleOrder, sortOrder);
+      queryBuilder.addSelect(roleOrder, 'user_role_sort');
+      queryBuilder.orderBy('user_role_sort', sortOrder);
     } else if (sortBy === UserSortBy.DELETED_AT) {
       // Soft-deleted users at bottom when sorting by deletedAt
       queryBuilder

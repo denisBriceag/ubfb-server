@@ -7,6 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ToBoolean } from '@core/decorators/to-boolean.decorator';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { ProductSortBy } from '@features/product/enums/product-sort.enum';
 
@@ -32,17 +33,17 @@ export class FindManyProductsDto {
   packagingTypeName?: string;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   isWholesale?: boolean;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   isGiftBox?: boolean;
 
@@ -67,7 +68,7 @@ export class FindManyProductsDto {
   limit?: number = 20;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   includeDeleted?: boolean = false;
 }

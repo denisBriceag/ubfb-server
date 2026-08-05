@@ -186,12 +186,19 @@ export class UserController {
     status: HttpStatus.UNAUTHORIZED,
     description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
   })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: SWAGGER_RES_DESCRIPTIONS.FORBIDDEN(
+      Roles.SUPER_ADMIN + ' only allowed',
+    ),
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async restore(
     @Param('id') id: User['id'],
     @ActiveUser('sub') currentUserId: User['updatedBy'],
+    @ActiveUser('role') currentUserRole: User['role'],
   ): Promise<void> {
-    return this._userService.restore(id, currentUserId);
+    return this._userService.restore(id, currentUserId, currentUserRole);
   }
 
   @Delete(':id/hard')

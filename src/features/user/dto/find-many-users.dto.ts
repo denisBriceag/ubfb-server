@@ -1,6 +1,7 @@
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { Type } from 'class-transformer';
+import { ToBoolean } from '@core/decorators/to-boolean.decorator';
 
 export enum UserSortBy {
   NAME = 'name',
@@ -37,6 +38,6 @@ export class FindManyUsersDto {
   limit?: number = 10;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   includeDeleted?: boolean = false;
 }

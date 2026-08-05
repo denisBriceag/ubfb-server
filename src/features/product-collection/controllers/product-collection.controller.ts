@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   ClassSerializerInterceptor,
   HttpStatus,
@@ -34,6 +35,7 @@ import { ProductCollectionService } from '../services/product-collection.service
 import { CreateProductCollectionDto } from '../dto/create-product-collection.dto';
 import { UpdateProductCollectionDto } from '../dto/update-product-collection.dto';
 import { AddCollectionItemDto } from '../dto/add-collection-item.dto';
+import { FindManyProductCollectionsDto } from '../dto/find-many-product-collections.dto';
 import { ProductCollection } from '../entities/product-collection.entity';
 import { ProductCollectionItem } from '../entities/product-collection-item.entity';
 
@@ -66,8 +68,10 @@ export class ProductCollectionController {
   @ApiResponse({ status: HttpStatus.OK })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  async findAll(): Promise<ProductCollection[]> {
-    return this._collectionService.findAll();
+  async findAll(
+    @Query() dto: FindManyProductCollectionsDto,
+  ): Promise<ProductCollection[]> {
+    return this._collectionService.findAll(dto);
   }
 
   @Get(':id')

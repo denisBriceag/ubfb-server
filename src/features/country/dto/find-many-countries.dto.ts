@@ -1,5 +1,6 @@
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ToBoolean } from '@core/decorators/to-boolean.decorator';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { CountrySortBy } from '@features/country/enums/country-sort.enum';
 
@@ -29,6 +30,6 @@ export class FindManyCountriesDto {
   limit?: number = 10;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   includeDeleted?: boolean = false;
 }

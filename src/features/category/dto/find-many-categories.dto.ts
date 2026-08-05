@@ -7,6 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ToBoolean } from '@core/decorators/to-boolean.decorator';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { CategorySortBy } from '@features/category/enums/category-sort.enum';
 
@@ -16,7 +17,7 @@ export class FindManyCategoriesDto {
   parentId?: string | null;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 
@@ -41,7 +42,7 @@ export class FindManyCategoriesDto {
   limit?: number = 50;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   includeDeleted?: boolean = false;
 }

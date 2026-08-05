@@ -18,6 +18,7 @@ import { ProductCollectionItem } from '../entities/product-collection-item.entit
 import { CreateProductCollectionDto } from '../dto/create-product-collection.dto';
 import { UpdateProductCollectionDto } from '../dto/update-product-collection.dto';
 import { AddCollectionItemDto } from '../dto/add-collection-item.dto';
+import { FindManyProductCollectionsDto } from '../dto/find-many-product-collections.dto';
 
 const MAX_ACTIVE_COLLECTIONS = 3;
 
@@ -140,8 +141,12 @@ export class ProductCollectionService {
     return collection;
   }
 
-  async findAll(): Promise<ProductCollection[]> {
-    return this._collectionRepository
+  async findAll(
+    dto?: FindManyProductCollectionsDto,
+  ): Promise<ProductCollection[]> {
+    const withDeleted = dto?.includeDeleted ?? false;
+
+    const qb = this._collectionRepository
       .createQueryBuilder('collection')
       .leftJoinAndSelect('collection.items', 'items')
       .leftJoin('items.product', 'product')
@@ -150,8 +155,13 @@ export class ProductCollectionService {
       .addSelect(['updater.id', 'updater.email'])
       .orderBy('collection.position', 'ASC')
       .addOrderBy('collection.createdAt', 'DESC')
-      .addOrderBy('items.position', 'ASC')
-      .getMany();
+      .addOrderBy('items.position', 'ASC');
+
+    if (withDeleted) {
+      qb.withDeleted();
+    }
+
+    return qb.getMany();
   }
 
   async addItem(

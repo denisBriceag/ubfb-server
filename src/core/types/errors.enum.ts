@@ -51,6 +51,9 @@ export enum ErrorsEnum {
   ALCOHOL_PERCENTAGE_NO_EXCEED = 'Alcohol percentage cannot exceed 100',
   IMAGE_WITHOUT_WIDTH = "Image must contain width in it's metadata",
   IMAGE_NO_DOTS = "The image name should not have any dots in it's name.",
+  COUNTRIES_API_NOT_CONFIGURED = 'Countries provider is not configured.',
+  COUNTRIES_API_UNAVAILABLE = 'Countries provider is currently unavailable. Please try again later.',
+  COUNTRY_IN_USE = 'Country is still referenced by other records and cannot be deleted.',
 }
 
 export const ERROR_MAP = {
@@ -109,6 +112,9 @@ export const ERROR_MAP = {
   IMAGE_WITHOUT_WIDTH: 'IMAGE_WITHOUT_WIDTH',
   IMAGE_MINIMUM_WIDTH: 'IMAGE_MINIMUM_WIDTH',
   IMAGE_NO_DOTS: 'IMAGE_NO_DOTS',
+  COUNTRIES_API_NOT_CONFIGURED: 'COUNTRIES_API_NOT_CONFIGURED',
+  COUNTRIES_API_UNAVAILABLE: 'COUNTRIES_API_UNAVAILABLE',
+  COUNTRY_IN_USE: 'COUNTRY_IN_USE',
 } as const;
 
 export const ERROR_MESSAGES = {

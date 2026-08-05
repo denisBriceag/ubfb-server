@@ -7,6 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ToBoolean } from '@core/decorators/to-boolean.decorator';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { BrandSortBy } from '@features/brand/enums/brand-sort.enum';
 
@@ -40,6 +41,6 @@ export class FindManyBrandsDto {
   limit?: number = 10;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   includeDeleted?: boolean = false;
 }

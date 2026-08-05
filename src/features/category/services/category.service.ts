@@ -223,13 +223,14 @@ export class CategoryService {
       .leftJoin('category.parent', 'parent')
       .addSelect(['parent.id', 'parent.name'])
       .leftJoin('category.updater', 'updater')
-      .addSelect(['updater.id', 'updater.email'])
-      .orderBy(
-        sortBy === CategorySortBy.NAME
-          ? `category.name->>'${language ?? 'en'}'`
-          : `category.${sortBy}`,
-        sortOrder,
-      );
+      .addSelect(['updater.id', 'updater.email']);
+
+    if (sortBy === CategorySortBy.NAME) {
+      qb.addSelect(`category.name->>'${language ?? 'en'}'`, 'category_name_sort');
+      qb.orderBy('category_name_sort', sortOrder);
+    } else {
+      qb.orderBy(`category.${sortBy}`, sortOrder);
+    }
 
     if (withDeleted) {
       qb.withDeleted();
