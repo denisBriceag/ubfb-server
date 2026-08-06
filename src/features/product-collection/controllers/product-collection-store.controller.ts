@@ -16,7 +16,9 @@ export class ProductCollectionStoreController {
   @Get()
   @ApiOperation({ summary: 'List active collections with their products' })
   @ApiResponse({ status: HttpStatus.OK })
-  findAll(@ActiveLanguage() language: Language): Promise<StoreCollectionModel[]> {
+  findAll(
+    @ActiveLanguage() language: Language,
+  ): Promise<StoreCollectionModel[]> {
     return this._collectionService.findAllActiveStore(language);
   }
 

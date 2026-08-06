@@ -10,10 +10,7 @@ import { ProductController } from './controllers/product.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Product]), S3Module],
-  providers: [
-    ProductService,
-    { provide: DOMAIN, useValue: Domains.ADMIN },
-  ],
+  providers: [ProductService, { provide: DOMAIN, useValue: Domains.ADMIN }],
   exports: [ProductService],
   controllers: [ProductController],
 })

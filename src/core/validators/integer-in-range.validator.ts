@@ -9,7 +9,7 @@ export function IsIntegerInRange(
   max = 100,
   validationOptions?: ValidationOptions,
 ) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'isIntegerInRange',
       target: object.constructor,

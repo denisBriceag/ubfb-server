@@ -317,7 +317,9 @@ export class CountryService {
       });
     }
 
-    if (response.status === HttpStatus.TOO_MANY_REQUESTS) {
+    const status: HttpStatus = response.status;
+
+    if (status === HttpStatus.TOO_MANY_REQUESTS) {
       throw new HttpException(
         {
           message: ErrorsEnum.TOO_MANY_REQUESTS,

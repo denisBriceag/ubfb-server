@@ -1,4 +1,8 @@
-import { registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+import {
+  registerDecorator,
+  ValidationOptions,
+  ValidationArguments,
+} from 'class-validator';
 import { Language } from '../types/language';
 
 function isValidDelta(value: unknown): boolean {
@@ -11,7 +15,7 @@ function isValidDelta(value: unknown): boolean {
 }
 
 export function IsLocalizedQuillDelta(validationOptions?: ValidationOptions) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'isLocalizedQuillDelta',
       target: object.constructor,
@@ -19,7 +23,11 @@ export function IsLocalizedQuillDelta(validationOptions?: ValidationOptions) {
       options: validationOptions,
       validator: {
         validate(value: any): boolean {
-          if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+          if (
+            typeof value !== 'object' ||
+            value === null ||
+            Array.isArray(value)
+          ) {
             return false;
           }
           const expectedKeys: Language[] = ['en', 'ro', 'ru'];

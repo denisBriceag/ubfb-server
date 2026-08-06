@@ -26,7 +26,9 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   @Length(1, 200)
-  @Matches(SLUG_REGEX, { message: 'slug must contain only lowercase letters, numbers, and hyphens' })
+  @Matches(SLUG_REGEX, {
+    message: 'slug must contain only lowercase letters, numbers, and hyphens',
+  })
   slug: string;
 
   @IsUUID()

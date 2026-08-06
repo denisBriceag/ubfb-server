@@ -16,7 +16,9 @@ export class Category extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   parentId: string | null;
 
-  @ManyToOne(() => Category, (category) => category.children, { nullable: true })
+  @ManyToOne(() => Category, (category) => category.children, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'parentId' })
   parent: Category | null;
 

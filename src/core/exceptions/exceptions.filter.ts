@@ -31,7 +31,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const statusCode = exception.getStatus();
+    const statusCode: HttpStatus = exception.getStatus();
     const domain: Domains = request.url.split('/')[1] as Domains;
     const errorCode = exception.getResponse()['errorCode'];
 
@@ -46,7 +46,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (errorCode === ERROR_MAP.VALIDATION_ERROR) {
       errorResponse.validationMessages = exception.getResponse()['errors'];
-      errorResponse.cause = exception!.cause as ErrorCause;
+      errorResponse.cause = exception.cause as ErrorCause;
     }
 
     if (statusCode === HttpStatus.TOO_MANY_REQUESTS) {
@@ -57,7 +57,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const responseObject = new ErrorResponse(errorResponse);
 
     this._logger.error(
-      `[HTTP Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [Request Author]: ${request[REQUEST_USER_KEY]?.email} | [IP]: ${request.ip} | [IPS]: ${request.ips} | [Request ID]: ${request[REQUEST_ID_HEADER]}`,
+      `[HTTP Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [Request Author]: ${request[REQUEST_USER_KEY]?.email} | [IP]: ${request.ip} | [IPS]: ${request.ips.join(',')} | [Request ID]: ${request[REQUEST_ID_HEADER]}`,
     );
 
     return this._httpAdapter.httpAdapter.reply(

@@ -81,7 +81,7 @@ export class RedisService
   }
 
   async onApplicationShutdown(): Promise<string> {
-    this._redisClient.flushdb();
+    await this._redisClient.flushdb();
 
     return this._redisClient.quit();
   }

@@ -16,7 +16,9 @@ export class CreateCategoryDto {
   @IsString()
   @IsNotEmpty()
   @Length(1, 150)
-  @Matches(SLUG_REGEX, { message: 'slug must contain only lowercase letters, numbers, and hyphens' })
+  @Matches(SLUG_REGEX, {
+    message: 'slug must contain only lowercase letters, numbers, and hyphens',
+  })
   slug: string;
 
   @IsFullLocalizedString()

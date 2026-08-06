@@ -23,6 +23,8 @@ export class AddIsGiftBoxAndRelatedProducts1779031320000 implements MigrationInt
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "product_related_products"`);
-    await queryRunner.query(`ALTER TABLE "products" DROP COLUMN IF EXISTS "isGiftBox"`);
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP COLUMN IF EXISTS "isGiftBox"`,
+    );
   }
 }

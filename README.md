@@ -63,11 +63,21 @@ $ pnpm run start:prod
 # unit tests
 $ pnpm run test
 
-# e2e tests
-$ pnpm run test:e2e
-
 # test coverage
 $ pnpm run test:cov
+```
+
+## Lint and typecheck
+
+```bash
+# lint and auto-fix
+$ pnpm run lint
+
+# lint (check only, used in CI)
+$ pnpm run lint:check
+
+# typecheck
+$ pnpm run typecheck
 ```
 
 ## Deployment

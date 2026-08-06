@@ -1,4 +1,12 @@
-import { Check, Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne } from 'typeorm';
+import {
+  Check,
+  Column,
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  ManyToOne,
+} from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { BaseEntity } from '@core/entities/base.entity';
 import { Language } from '@core/types/language';
@@ -78,7 +86,10 @@ export class Product extends BaseEntity {
     precision: 5,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number | null) => v, from: (v: string | null) => (v !== null ? parseFloat(v) : null) },
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) => (v !== null ? parseFloat(v) : null),
+    },
   })
   alcoholPercentage: number | null;
 
@@ -106,7 +117,10 @@ export class Product extends BaseEntity {
   @JoinTable({
     name: 'product_related_products',
     joinColumn: { name: 'product_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'related_product_id', referencedColumnName: 'id' },
+    inverseJoinColumn: {
+      name: 'related_product_id',
+      referencedColumnName: 'id',
+    },
   })
   relatedProducts: Product[];
 

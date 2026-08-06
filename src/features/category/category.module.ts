@@ -10,10 +10,7 @@ import { CategoryController } from './controllers/category.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Category]), S3Module],
-  providers: [
-    CategoryService,
-    { provide: DOMAIN, useValue: Domains.ADMIN },
-  ],
+  providers: [CategoryService, { provide: DOMAIN, useValue: Domains.ADMIN }],
   exports: [CategoryService],
   controllers: [CategoryController],
 })

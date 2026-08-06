@@ -25,8 +25,12 @@ export class AddImageColumns1746900000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "products" DROP COLUMN IF EXISTS "images"`);
-    await queryRunner.query(`ALTER TABLE "brands" DROP COLUMN IF EXISTS "logoUrl"`);
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP COLUMN IF EXISTS "images"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "brands" DROP COLUMN IF EXISTS "logoUrl"`,
+    );
     await queryRunner.query(`
       DO $$ BEGIN
         IF EXISTS (

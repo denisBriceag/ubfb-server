@@ -10,7 +10,13 @@ import { ProductCollectionService } from './services/product-collection.service'
 import { ProductCollectionController } from './controllers/product-collection.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ProductCollection, ProductCollectionItem, Product])],
+  imports: [
+    TypeOrmModule.forFeature([
+      ProductCollection,
+      ProductCollectionItem,
+      Product,
+    ]),
+  ],
   providers: [
     ProductCollectionService,
     { provide: DOMAIN, useValue: Domains.ADMIN },

@@ -17,7 +17,9 @@ export class PackagingTypeStoreController {
   @Get()
   @ApiOperation({ summary: 'List packaging types' })
   @ApiResponse({ status: HttpStatus.OK })
-  async findAll(@ActiveLanguage() language: Language): Promise<StorePackagingTypeModel[]> {
+  async findAll(
+    @ActiveLanguage() language: Language,
+  ): Promise<StorePackagingTypeModel[]> {
     const items = await this._packagingTypeService.findAll();
     return items.map((pt) => ({
       name: pt.name,
