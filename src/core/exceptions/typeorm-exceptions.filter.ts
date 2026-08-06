@@ -132,7 +132,7 @@ export class TypeOrmExceptionFilter implements ExceptionFilter {
     }
 
     this._logger.error(
-      `[TypeORM Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [IP]: ${request.ip} | [IPS]: ${request.ips} [Request ID]: ${request[REQUEST_ID_HEADER]}`,
+      `[TypeORM Exception]: ${exception.message} | [URL]: ${this._httpAdapter.httpAdapter.getRequestUrl(request)} | [PATH]: ${request.path} | [IP]: ${request.ip} | [IPS]: ${request.ips.join(',')} [Request ID]: ${request[REQUEST_ID_HEADER]}`,
       exception.stack,
     );
 

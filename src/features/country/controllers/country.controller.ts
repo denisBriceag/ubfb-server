@@ -53,8 +53,14 @@ export class CountryController {
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: operations.CREATE_NEW })
   @ApiResponse({ status: HttpStatus.CREATED, type: Country })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async create(
     @Body() dto: CreateCountryDto,
@@ -67,9 +73,14 @@ export class CountryController {
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: operations.GET_ALL_WITH_PAG })
   @ApiResponse({ status: HttpStatus.OK })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  async findMany(@Query() dto: FindManyCountriesDto): Promise<PaginatedData<Country>> {
+  async findMany(
+    @Query() dto: FindManyCountriesDto,
+  ): Promise<PaginatedData<Country>> {
     return this._countryService.findMany(dto);
   }
 
@@ -79,9 +90,18 @@ export class CountryController {
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: 'Search countries in the external provider' })
   @ApiResponse({ status: HttpStatus.OK })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
-  @ApiResponse({ status: HttpStatus.BAD_GATEWAY, description: 'Countries provider is unavailable' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_GATEWAY,
+    description: 'Countries provider is unavailable',
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async search(@Query() dto: SearchCountriesDto): Promise<CountrySuggestion[]> {
     return this._countryService.search(dto);
@@ -92,8 +112,14 @@ export class CountryController {
   @ApiOperation({ summary: operations.GET_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.OK, type: Country })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async findOne(@Param('id') id: string): Promise<Country> {
     return this._countryService.findOneById(id);
@@ -104,9 +130,18 @@ export class CountryController {
   @ApiOperation({ summary: operations.UPDATE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.OK, type: Country })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async update(
     @Param('id') id: string,
@@ -122,8 +157,14 @@ export class CountryController {
   @ApiOperation({ summary: operations.SOFT_DELETE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async softDelete(
     @Param('id') id: string,
@@ -138,8 +179,14 @@ export class CountryController {
   @ApiOperation({ summary: operations.RESTORE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async restore(
     @Param('id') id: string,
@@ -154,8 +201,14 @@ export class CountryController {
   @ApiOperation({ summary: operations.HARD_DELETE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async hardDelete(@Param('id') id: string): Promise<void> {
     return this._countryService.hardDelete(id);

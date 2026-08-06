@@ -42,6 +42,8 @@ export enum ErrorsEnum {
   NOT_ENOUGH_PERMISSIONS = 'You do not have permission to access this resource.',
   NOT_ENOUGH_PERMISSIONS_OPERATION = 'You do not have permission to perform this operation.',
   VERSION_NOT_FOUND = 'Content version miss match. Try updating again.',
+  // Same user-facing message as VERSION_NOT_FOUND on purpose
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
   VERSION_MISMATCH = 'Content version miss match. Try updating again.',
   OPERATION_ERROR = 'Unable to perform operation. Try again later.',
   S3_READ_FAILED = 'Could not read image from S3',

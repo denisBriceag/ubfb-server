@@ -10,10 +10,7 @@ import { BrandController } from './controllers/brand.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Brand]), S3Module],
-  providers: [
-    BrandService,
-    { provide: DOMAIN, useValue: Domains.ADMIN },
-  ],
+  providers: [BrandService, { provide: DOMAIN, useValue: Domains.ADMIN }],
   exports: [BrandService],
   controllers: [BrandController],
 })

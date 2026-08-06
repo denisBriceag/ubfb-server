@@ -7,7 +7,13 @@ import { ProductCollectionService } from '../services/product-collection.service
 import { ProductCollectionStoreController } from '../controllers/product-collection-store.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ProductCollection, ProductCollectionItem, Product])],
+  imports: [
+    TypeOrmModule.forFeature([
+      ProductCollection,
+      ProductCollectionItem,
+      Product,
+    ]),
+  ],
   providers: [ProductCollectionService],
   controllers: [ProductCollectionStoreController],
 })

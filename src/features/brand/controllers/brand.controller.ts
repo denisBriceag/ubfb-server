@@ -51,8 +51,14 @@ export class BrandController {
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: operations.CREATE_NEW })
   @ApiResponse({ status: HttpStatus.CREATED, type: Brand })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async create(
     @Body() dto: CreateBrandDto,
@@ -65,9 +71,14 @@ export class BrandController {
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: operations.GET_ALL_WITH_PAG })
   @ApiResponse({ status: HttpStatus.OK })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
-  async findMany(@Query() dto: FindManyBrandsDto): Promise<PaginatedData<Brand>> {
+  async findMany(
+    @Query() dto: FindManyBrandsDto,
+  ): Promise<PaginatedData<Brand>> {
     return this._brandService.findMany(dto);
   }
 
@@ -76,8 +87,14 @@ export class BrandController {
   @ApiOperation({ summary: operations.GET_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.OK, type: Brand })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async findOne(@Param('id') id: string): Promise<Brand> {
     return this._brandService.findOneById(id);
@@ -88,9 +105,18 @@ export class BrandController {
   @ApiOperation({ summary: operations.UPDATE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.OK, type: Brand })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async update(
     @Param('id') id: string,
@@ -106,8 +132,14 @@ export class BrandController {
   @ApiOperation({ summary: operations.SOFT_DELETE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async softDelete(
     @Param('id') id: string,
@@ -122,8 +154,14 @@ export class BrandController {
   @ApiOperation({ summary: operations.RESTORE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async restore(
     @Param('id') id: string,
@@ -138,8 +176,14 @@ export class BrandController {
   @ApiOperation({ summary: operations.HARD_DELETE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async hardDelete(@Param('id') id: string): Promise<void> {
     return this._brandService.hardDelete(id);

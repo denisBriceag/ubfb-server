@@ -6,7 +6,7 @@ import {
 import { Language } from '../types/language';
 
 export function IsFullLocalizedString(validationOptions?: ValidationOptions) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'isFullLocalizedString',
       target: object.constructor,

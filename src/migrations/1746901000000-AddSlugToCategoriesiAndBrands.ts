@@ -26,10 +26,14 @@ export class AddSlugToCategoriesiAndBrands1746901000000 implements MigrationInte
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "brands" DROP CONSTRAINT "UQ_brands_slug"`);
+    await queryRunner.query(
+      `ALTER TABLE "brands" DROP CONSTRAINT "UQ_brands_slug"`,
+    );
     await queryRunner.query(`ALTER TABLE "brands" DROP COLUMN "slug"`);
 
-    await queryRunner.query(`ALTER TABLE "categories" DROP CONSTRAINT "UQ_categories_slug"`);
+    await queryRunner.query(
+      `ALTER TABLE "categories" DROP CONSTRAINT "UQ_categories_slug"`,
+    );
     await queryRunner.query(`ALTER TABLE "categories" DROP COLUMN "slug"`);
   }
 }

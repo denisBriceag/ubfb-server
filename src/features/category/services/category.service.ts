@@ -226,7 +226,10 @@ export class CategoryService {
       .addSelect(['updater.id', 'updater.email']);
 
     if (sortBy === CategorySortBy.NAME) {
-      qb.addSelect(`category.name->>'${language ?? 'en'}'`, 'category_name_sort');
+      qb.addSelect(
+        `category.name->>'${language ?? 'en'}'`,
+        'category_name_sort',
+      );
       qb.orderBy('category_name_sort', sortOrder);
     } else {
       qb.orderBy(`category.${sortBy}`, sortOrder);

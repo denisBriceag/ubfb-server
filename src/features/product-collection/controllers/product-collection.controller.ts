@@ -52,8 +52,14 @@ export class ProductCollectionController {
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: operations.CREATE_NEW })
   @ApiResponse({ status: HttpStatus.CREATED, type: ProductCollection })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async create(
     @Body() dto: CreateProductCollectionDto,
@@ -66,7 +72,10 @@ export class ProductCollectionController {
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
   @ApiOperation({ summary: operations.GET_ALL })
   @ApiResponse({ status: HttpStatus.OK })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async findAll(
     @Query() dto: FindManyProductCollectionsDto,
@@ -79,8 +88,14 @@ export class ProductCollectionController {
   @ApiOperation({ summary: operations.GET_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.OK, type: ProductCollection })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async findOne(@Param('id') id: string): Promise<ProductCollection> {
     return this._collectionService.findOneById(id);
@@ -91,9 +106,18 @@ export class ProductCollectionController {
   @ApiOperation({ summary: operations.UPDATE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.OK, type: ProductCollection })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async update(
     @Param('id') id: string,
@@ -109,8 +133,14 @@ export class ProductCollectionController {
   @ApiOperation({ summary: operations.SOFT_DELETE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async softDelete(
     @Param('id') id: string,
@@ -125,8 +155,14 @@ export class ProductCollectionController {
   @ApiOperation({ summary: operations.RESTORE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async restore(
     @Param('id') id: string,
@@ -141,8 +177,14 @@ export class ProductCollectionController {
   @ApiOperation({ summary: operations.HARD_DELETE_BY_ID })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async hardDelete(@Param('id') id: string): Promise<void> {
     return this._collectionService.hardDelete(id);
@@ -153,9 +195,18 @@ export class ProductCollectionController {
   @ApiOperation({ summary: 'Add product to collection' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.CREATED, type: ProductCollectionItem })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: SWAGGER_RES_DESCRIPTIONS.INVALID_INPUT,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async addItem(
     @Param('id') collectionId: string,
@@ -171,8 +222,14 @@ export class ProductCollectionController {
   @ApiParam({ name: 'id', type: String })
   @ApiParam({ name: 'productId', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: SWAGGER_RES_DESCRIPTIONS.UNAUTHORIZED,
+  })
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async removeItem(
     @Param('id') collectionId: string,

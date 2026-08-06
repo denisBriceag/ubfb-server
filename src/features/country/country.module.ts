@@ -9,10 +9,7 @@ import { CountryController } from './controllers/country.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Country])],
-  providers: [
-    CountryService,
-    { provide: DOMAIN, useValue: Domains.ADMIN },
-  ],
+  providers: [CountryService, { provide: DOMAIN, useValue: Domains.ADMIN }],
   exports: [CountryService],
   controllers: [CountryController],
 })

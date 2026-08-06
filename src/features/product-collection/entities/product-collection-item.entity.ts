@@ -10,7 +10,9 @@ export class ProductCollectionItem {
   @PrimaryColumn({ type: 'uuid' })
   productId: string;
 
-  @ManyToOne(() => ProductCollection, (collection) => collection.items, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ProductCollection, (collection) => collection.items, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'collectionId' })
   collection: ProductCollection;
 
