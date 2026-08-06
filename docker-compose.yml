@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ubfb
+      POSTGRES_PASSWORD: ubfb
+      POSTGRES_DB: ubfb
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ubfb -d ubfb']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI
+
+  app:
+    build:
+      context: .
+      target: dev
+    command: sh -c "pnpm db:init && pnpm start:dev"
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ubfb
+      DB_PASSWORD: ubfb
+      DB_NAME: ubfb
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:

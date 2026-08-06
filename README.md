@@ -30,6 +30,29 @@
 ```bash
 $ nvm use
 $ pnpm install
+$ cp .env.example .env.development   # then fill in real values as needed
+```
+
+## Run with Docker (recommended)
+
+Starts Postgres, Redis, Mailpit (SMTP catcher, UI at http://localhost:8025) and the
+app in watch mode. On first start the database schema is bootstrapped automatically
+(`pnpm db:init`), afterwards pending migrations run on every container start.
+
+```bash
+$ docker compose up   # app on http://localhost:${APP_PORT:-3000}
+```
+
+If port 3000 is taken on the host, set `APP_PORT` in a root `.env` file (read by
+docker compose only, not by the app) — e.g. `APP_PORT=3001`.
+
+Source is bind-mounted — code changes hot-reload without rebuilding. Rebuild only
+when dependencies change: `docker compose up --build`.
+
+The production image is the `prod` target of the same Dockerfile:
+
+```bash
+$ docker build --target prod -t ubfb-server .
 ```
 
 ## Migrations
