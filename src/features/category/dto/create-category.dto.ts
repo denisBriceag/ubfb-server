@@ -1,13 +1,11 @@
 import {
   IsBoolean,
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   Matches,
-  Min,
 } from 'class-validator';
 import { IsFullLocalizedString } from '@core/validators';
 import { SLUG_REGEX } from '@core/constants';
@@ -31,11 +29,6 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsUUID()
   parentId?: string | null;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  position?: number;
 
   @IsOptional()
   @IsBoolean()

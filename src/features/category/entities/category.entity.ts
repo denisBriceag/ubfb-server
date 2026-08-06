@@ -26,9 +26,6 @@ export class Category extends BaseEntity {
   children: Category[];
 
   @Column({ type: 'int', default: 0 })
-  position: number;
-
-  @Column({ type: 'int', default: 0 })
   depth: number;
 
   @Column({ default: true })

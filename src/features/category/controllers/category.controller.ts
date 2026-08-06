@@ -22,6 +22,8 @@ import {
 import { Auth } from '@core/decorators/auth.decorator';
 import { AuthType } from '@core/types/auth-type.enum';
 import { ActiveUser } from '@core/decorators/active-user.decorator';
+import { ActiveLanguage } from '@core/decorators/active-language.decorator';
+import type { Language } from '@core/types/language';
 import { Role } from '@core/decorators/role.decorator';
 import { Roles } from '@core/types/roles.enum';
 import { PaginatedData } from '@core/types/paginted-data';
@@ -78,8 +80,9 @@ export class CategoryController {
   @ApiBearerAuth(SWAGGER_CONSTANTS.ACCESS_TOKEN)
   async findMany(
     @Query() dto: FindManyCategoriesDto,
+    @ActiveLanguage() language: Language,
   ): Promise<PaginatedData<Category>> {
-    return this._categoryService.findMany(dto);
+    return this._categoryService.findMany(dto, language);
   }
 
   @Get(':id')

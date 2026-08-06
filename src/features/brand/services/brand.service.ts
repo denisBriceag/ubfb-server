@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  DataSource,
+  OptimisticLockVersionMismatchError,
+  Repository,
+} from 'typeorm';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { ERROR_MAP, ERROR_MESSAGES } from '@core/types/errors.enum';
 import { PaginatedData } from '@core/types/paginted-data';
@@ -26,6 +30,7 @@ export class BrandService {
     @InjectRepository(Brand)
     private readonly _brandRepository: Repository<Brand>,
     private readonly _s3Service: S3Service,
+    private readonly _dataSource: DataSource,
   ) {}
 
   async create(dto: CreateBrandDto, updatedBy: string): Promise<Brand> {
@@ -46,30 +51,49 @@ export class BrandService {
     dto: UpdateBrandDto,
     updatedBy: string,
   ): Promise<Brand> {
-    const existing = await this._brandRepository.findOne({
-      where: { id },
-      lock: { mode: 'optimistic', version: dto.version },
-    });
+    const { saved, obsoleteImages } = await this._dataSource.transaction(
+      async (manager) => {
+        const existing = await manager.findOne(Brand, {
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
 
-    if (!existing) {
-      throw new NotFoundException({
-        message: ERROR_MESSAGES.notFound('id', id, FEATURES.BRAND),
-        errorCode: ERROR_MAP.INVALID_ID,
-      });
-    }
+        if (!existing) {
+          throw new NotFoundException({
+            message: ERROR_MESSAGES.notFound('id', id, FEATURES.BRAND),
+            errorCode: ERROR_MAP.INVALID_ID,
+          });
+        }
 
-    const { logoUrl: rawLogoUrl, ...rest } = dto;
-    const logoUrl = await this._s3Service.resolveImage(
-      rawLogoUrl,
-      existing.logoUrl,
-      FEATURES.BRAND,
+        if (existing.version !== dto.version) {
+          throw new OptimisticLockVersionMismatchError(
+            FEATURES.BRAND,
+            dto.version,
+            existing.version,
+          );
+        }
+
+        const { logoUrl: rawLogoUrl, ...rest } = dto;
+        const { url: logoUrl, obsolete } =
+          await this._s3Service.resolveImageDeferred(
+            rawLogoUrl,
+            existing.logoUrl,
+            FEATURES.BRAND,
+          );
+        const updated = await manager.save(Brand, {
+          ...existing,
+          ...rest,
+          logoUrl,
+          updatedBy,
+        });
+
+        return { saved: updated, obsoleteImages: obsolete };
+      },
     );
-    const saved = await this._brandRepository.save({
-      ...existing,
-      ...rest,
-      logoUrl,
-      updatedBy,
-    });
+
+    if (obsoleteImages.length) {
+      await this._s3Service.deleteImages(obsoleteImages);
+    }
 
     return (await this._findOneWithRelations(saved.id))!;
   }
@@ -118,11 +142,11 @@ export class BrandService {
       });
     }
 
+    await this._brandRepository.delete(id);
+
     if (brand.logoUrl) {
       await this._s3Service.deleteImages([brand.logoUrl]);
     }
-
-    await this._brandRepository.delete(id);
   }
 
   async findOneById(id: string): Promise<Brand> {

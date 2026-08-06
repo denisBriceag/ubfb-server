@@ -4,6 +4,5 @@ export interface StoreCategoryNode {
   name: string;
   imageUrl: string | null;
   depth: number;
-  position: number;
   children: StoreCategoryNode[];
 }

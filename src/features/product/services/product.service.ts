@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  DataSource,
+  In,
+  OptimisticLockVersionMismatchError,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { ERROR_MAP, ERROR_MESSAGES } from '@core/types/errors.enum';
 import { PaginatedData } from '@core/types/paginted-data';
@@ -39,6 +45,7 @@ export class ProductService {
     @InjectRepository(Product)
     private readonly _productRepository: Repository<Product>,
     private readonly _s3Service: S3Service,
+    private readonly _dataSource: DataSource,
   ) {}
 
   async create(dto: CreateProductDto, updatedBy: string): Promise<Product> {
@@ -66,34 +73,54 @@ export class ProductService {
     dto: UpdateProductDto,
     updatedBy: string,
   ): Promise<Product> {
-    const existing = await this._productRepository.findOne({
-      where: { id },
-      lock: { mode: 'optimistic', version: dto.version },
-      relations: { relatedProducts: true },
-    });
+    const { saved, obsoleteImages } = await this._dataSource.transaction(
+      async (manager) => {
+        const existing = await manager.findOne(Product, {
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
 
-    if (!existing) {
-      throw new NotFoundException({
-        message: ERROR_MESSAGES.notFound('id', id, FEATURES.PRODUCT),
-        errorCode: ERROR_MAP.INVALID_ID,
-      });
+        if (!existing) {
+          throw new NotFoundException({
+            message: ERROR_MESSAGES.notFound('id', id, FEATURES.PRODUCT),
+            errorCode: ERROR_MAP.INVALID_ID,
+          });
+        }
+
+        if (existing.version !== dto.version) {
+          throw new OptimisticLockVersionMismatchError(
+            FEATURES.PRODUCT,
+            dto.version,
+            existing.version,
+          );
+        }
+
+        const { images: rawImages, relatedProductIds, ...rest } = dto;
+        const { urls: images, obsolete } = await this._resolveImagesDeferred(
+          rawImages,
+          existing.images,
+        );
+
+        if (relatedProductIds !== undefined) {
+          existing.relatedProducts = relatedProductIds.length
+            ? await manager.findBy(Product, { id: In(relatedProductIds) })
+            : [];
+        }
+
+        const updated = await manager.save(Product, {
+          ...existing,
+          ...rest,
+          images,
+          updatedBy,
+        });
+
+        return { saved: updated, obsoleteImages: obsolete };
+      },
+    );
+
+    if (obsoleteImages.length) {
+      await this._s3Service.deleteImages(obsoleteImages);
     }
-
-    const { images: rawImages, relatedProductIds, ...rest } = dto;
-    const images = await this._resolveImages(rawImages, existing.images);
-
-    if (relatedProductIds !== undefined) {
-      existing.relatedProducts = relatedProductIds.length
-        ? await this._productRepository.findBy({ id: In(relatedProductIds) })
-        : [];
-    }
-
-    const saved = await this._productRepository.save({
-      ...existing,
-      ...rest,
-      images,
-      updatedBy,
-    });
 
     return (await this._findOneWithRelations(saved.id))!;
   }
@@ -142,11 +169,13 @@ export class ProductService {
       });
     }
 
+    // Delete the row first: if it fails (e.g. FK violation) the images must
+    // survive with it
+    await this._productRepository.delete(id);
+
     if (product.images.length > 0) {
       await this._s3Service.deleteImages(product.images);
     }
-
-    await this._productRepository.delete(id);
   }
 
   async findOneById(id: string): Promise<Product> {
@@ -937,6 +966,35 @@ export class ProductService {
     if (!result?.min) return null;
 
     return { min: parseFloat(result.min), max: parseFloat(result.max!) };
+  }
+
+  /**
+   * @description Deletion-free variant of _resolveImages for use inside transactions:
+   * temp uploads are only copied to the permanent bucket, and everything
+   * that became obsolete (removed images, consumed temp uploads) is
+   * returned so the caller can delete it after commit.
+   */
+  private async _resolveImagesDeferred(
+    incoming: string[] | undefined,
+    existing: string[],
+  ): Promise<{ urls: string[]; obsolete: string[] }> {
+    if (incoming === undefined) return { urls: existing, obsolete: [] };
+
+    const obsolete = existing.filter((url) => !incoming.includes(url));
+    const urls: string[] = [];
+
+    for (const url of incoming) {
+      const resolved = await this._s3Service.resolveImageDeferred(
+        url,
+        null,
+        FEATURES.PRODUCT,
+      );
+
+      urls.push(resolved.url!);
+      obsolete.push(...resolved.obsolete);
+    }
+
+    return { urls, obsolete };
   }
 
   private async _resolveImages(

@@ -105,6 +105,57 @@ export class S3Service {
   }
 
   async promoteTempImage(tempUrl: string, feature: string): Promise<string> {
+    const url = await this._copyTempToPermanent(tempUrl, feature);
+    const sourceKey = new URL(tempUrl).pathname.slice(1);
+
+    try {
+      await this._s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: this._s3Config.bucket_name_temp,
+          Key: sourceKey,
+        }),
+      );
+    } catch {
+      this._logger.warn(
+        `Failed to delete temp image after promotion: ${sourceKey}`,
+      );
+    }
+
+    return url;
+  }
+
+  /**
+   * @description Like resolveImage, but performs no deletions: only additive S3 work
+   * (copying a temp upload to the permanent bucket) happens here. The
+   * returned `obsolete` urls must be passed to deleteImages once the
+   * surrounding database transaction has committed — on rollback nothing
+   * is lost and the temp upload stays retryable.
+   */
+  async resolveImageDeferred(
+    incoming: string | null | undefined,
+    existing: string | null,
+    feature: string,
+  ): Promise<{ url: string | null; obsolete: string[] }> {
+    if (incoming === undefined) return { url: existing, obsolete: [] };
+
+    if (incoming === null) {
+      return { url: null, obsolete: existing ? [existing] : [] };
+    }
+
+    if (this.isTempUrl(incoming)) {
+      const url = await this._copyTempToPermanent(incoming, feature);
+      const obsolete = existing ? [existing, incoming] : [incoming];
+
+      return { url, obsolete };
+    }
+
+    return { url: incoming, obsolete: [] };
+  }
+
+  private async _copyTempToPermanent(
+    tempUrl: string,
+    feature: string,
+  ): Promise<string> {
     const sourceKey = new URL(tempUrl).pathname.slice(1);
     const destKey = `${feature}/${crypto.randomUUID()}/${path.basename(sourceKey)}`;
 
@@ -121,19 +172,6 @@ export class S3Service {
         message: ErrorsEnum.S3_UPLOAD_FAILED,
         errorCode: ERROR_MAP.S3_UPLOAD_FAILED,
       });
-    }
-
-    try {
-      await this._s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: this._s3Config.bucket_name_temp,
-          Key: sourceKey,
-        }),
-      );
-    } catch {
-      this._logger.warn(
-        `Failed to delete temp image after promotion: ${sourceKey}`,
-      );
     }
 
     return `${this._s3Config.cloudfront_url}/${destKey}`;

@@ -4,7 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  OptimisticLockVersionMismatchError,
+  Repository,
+} from 'typeorm';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { ERROR_MAP, ERROR_MESSAGES } from '@core/types/errors.enum';
 import { PaginatedData } from '@core/types/paginted-data';
@@ -29,6 +34,7 @@ export class CategoryService {
     @InjectRepository(Category)
     private readonly _categoryRepository: Repository<Category>,
     private readonly _s3Service: S3Service,
+    private readonly _dataSource: DataSource,
   ) {}
 
   async create(dto: CreateCategoryDto, updatedBy: string): Promise<Category> {
@@ -75,70 +81,89 @@ export class CategoryService {
     dto: UpdateCategoryDto,
     updatedBy: string,
   ): Promise<Category> {
-    const existing = await this._categoryRepository.findOne({
-      where: { id },
-      lock: { mode: 'optimistic', version: dto.version },
-    });
-
-    if (!existing) {
-      throw new NotFoundException({
-        message: ERROR_MESSAGES.notFound('id', id, FEATURES.CATEGORY),
-        errorCode: ERROR_MAP.INVALID_ID,
-      });
-    }
-
-    let depth = existing.depth;
-
-    if (dto.parentId !== undefined && dto.parentId !== existing.parentId) {
-      if (dto.parentId === null) {
-        depth = 0;
-      } else {
-        if (
-          dto.parentId === id ||
-          (await this._isDescendant(id, dto.parentId))
-        ) {
-          throw new BadRequestException({
-            message:
-              'Cannot assign a category or its descendant as its own parent.',
-            errorCode: ERROR_MAP.OPERATION_ERROR,
-          });
-        }
-
-        const parent = await this._categoryRepository.findOneBy({
-          id: dto.parentId,
+    const { saved, obsoleteImages } = await this._dataSource.transaction(
+      async (manager) => {
+        const existing = await manager.findOne(Category, {
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
         });
 
-        if (!parent) {
+        if (!existing) {
           throw new NotFoundException({
-            message: ERROR_MESSAGES.notFound(
-              'id',
-              dto.parentId,
-              FEATURES.CATEGORY,
-            ),
+            message: ERROR_MESSAGES.notFound('id', id, FEATURES.CATEGORY),
             errorCode: ERROR_MAP.INVALID_ID,
           });
         }
 
-        depth = parent.depth + 1;
-      }
-    }
+        if (existing.version !== dto.version) {
+          throw new OptimisticLockVersionMismatchError(
+            FEATURES.CATEGORY,
+            dto.version,
+            existing.version,
+          );
+        }
 
-    const { imageUrl: rawImageUrl, ...rest } = dto;
-    const imageUrl = await this._s3Service.resolveImage(
-      rawImageUrl,
-      existing.imageUrl,
-      FEATURES.CATEGORY,
+        let depth = existing.depth;
+
+        if (dto.parentId !== undefined && dto.parentId !== existing.parentId) {
+          if (dto.parentId === null) {
+            depth = 0;
+          } else {
+            if (
+              dto.parentId === id ||
+              (await this._isDescendant(id, dto.parentId, manager))
+            ) {
+              throw new BadRequestException({
+                message:
+                  'Cannot assign a category or its descendant as its own parent.',
+                errorCode: ERROR_MAP.OPERATION_ERROR,
+              });
+            }
+
+            const parent = await manager.findOneBy(Category, {
+              id: dto.parentId,
+            });
+
+            if (!parent) {
+              throw new NotFoundException({
+                message: ERROR_MESSAGES.notFound(
+                  'id',
+                  dto.parentId,
+                  FEATURES.CATEGORY,
+                ),
+                errorCode: ERROR_MAP.INVALID_ID,
+              });
+            }
+
+            depth = parent.depth + 1;
+          }
+        }
+
+        const { imageUrl: rawImageUrl, ...rest } = dto;
+        const { url: imageUrl, obsolete } =
+          await this._s3Service.resolveImageDeferred(
+            rawImageUrl,
+            existing.imageUrl,
+            FEATURES.CATEGORY,
+          );
+        const updated = await manager.save(Category, {
+          ...existing,
+          ...rest,
+          imageUrl,
+          depth,
+          updatedBy,
+        });
+
+        if (depth !== existing.depth) {
+          await this._cascadeDepth(updated.id, depth, manager);
+        }
+
+        return { saved: updated, obsoleteImages: obsolete };
+      },
     );
-    const saved = await this._categoryRepository.save({
-      ...existing,
-      ...rest,
-      imageUrl,
-      depth,
-      updatedBy,
-    });
 
-    if (depth !== existing.depth) {
-      await this._cascadeDepth(saved.id, depth);
+    if (obsoleteImages.length) {
+      await this._s3Service.deleteImages(obsoleteImages);
     }
 
     return (await this._findOneWithRelations(saved.id))!;
@@ -188,11 +213,11 @@ export class CategoryService {
       });
     }
 
+    await this._categoryRepository.delete(id);
+
     if (category.imageUrl) {
       await this._s3Service.deleteImages([category.imageUrl]);
     }
-
-    await this._categoryRepository.delete(id);
   }
 
   async findOneById(id: string): Promise<Category> {
@@ -212,7 +237,7 @@ export class CategoryService {
     dto: FindManyCategoriesDto,
     language?: Language,
   ): Promise<PaginatedData<Category>> {
-    const sortBy = dto?.sortBy ?? CategorySortBy.POSITION;
+    const sortBy = dto?.sortBy ?? CategorySortBy.CREATED_AT;
     const sortOrder = dto?.sortOrder ?? SortOrder.ASC;
     const withDeleted = dto?.includeDeleted ?? false;
     const page = dto?.page ?? this._defaultPage;
@@ -269,7 +294,7 @@ export class CategoryService {
   async findTree(language: Language): Promise<StoreCategoryNode[]> {
     const categories = await this._categoryRepository.find({
       where: { isActive: true },
-      order: { position: 'ASC' },
+      order: { createdAt: 'ASC' },
     });
 
     return this._buildTree(categories, null, language);
@@ -288,7 +313,6 @@ export class CategoryService {
         name: resolveLocalized(c.name, language),
         imageUrl: c.imageUrl,
         depth: c.depth,
-        position: c.position,
         children: this._buildTree(categories, c.id, language),
       }));
   }
@@ -296,14 +320,15 @@ export class CategoryService {
   private async _isDescendant(
     categoryId: string,
     targetId: string,
+    manager: EntityManager = this._categoryRepository.manager,
   ): Promise<boolean> {
-    const children = await this._categoryRepository.findBy({
+    const children = await manager.findBy(Category, {
       parentId: categoryId,
     });
 
     for (const child of children) {
       if (child.id === targetId) return true;
-      if (await this._isDescendant(child.id, targetId)) return true;
+      if (await this._isDescendant(child.id, targetId, manager)) return true;
     }
 
     return false;
@@ -312,27 +337,28 @@ export class CategoryService {
   private async _cascadeDepth(
     parentId: string,
     parentDepth: number,
+    manager: EntityManager = this._categoryRepository.manager,
   ): Promise<void> {
-    const children = await this._categoryRepository.findBy({ parentId });
+    const children = await manager.findBy(Category, { parentId });
 
     for (const child of children) {
       const childDepth = parentDepth + 1;
 
-      await this._categoryRepository.update(child.id, { depth: childDepth });
-      await this._cascadeDepth(child.id, childDepth);
+      await manager.update(Category, child.id, { depth: childDepth });
+      await this._cascadeDepth(child.id, childDepth, manager);
     }
   }
 
   private async _findOneWithRelations(id: string): Promise<Category | null> {
     return this._categoryRepository
       .createQueryBuilder('category')
+      .withDeleted()
       .leftJoin('category.parent', 'parent')
       .addSelect(['parent.id', 'parent.name'])
-      .leftJoin('category.children', 'children')
+      .leftJoin('category.children', 'children', 'children.deletedAt IS NULL')
       .addSelect([
         'children.id',
         'children.name',
-        'children.position',
         'children.depth',
         'children.isActive',
       ])
