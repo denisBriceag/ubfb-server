@@ -12,6 +12,7 @@ import { In, Repository } from 'typeorm';
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { ERROR_MAP, ERROR_MESSAGES, ErrorsEnum } from '@core/types/errors.enum';
 import { PaginatedData } from '@core/types/paginted-data';
+import { collated } from '@core/utils/localized-collator.util';
 import { FEATURES } from '@core/constants';
 import { Language } from '@core/types/language';
 
@@ -151,17 +152,15 @@ export class CountryService {
     const parts: string[] = [];
 
     if (brandCount > 0) {
-      parts.push(`${brandCount} ${brandCount === 1 ? 'brand' : 'brands'}`);
+      parts.push(ERROR_MESSAGES.countOf(brandCount, 'brand'));
     }
 
     if (productCount > 0) {
-      parts.push(
-        `${productCount} ${productCount === 1 ? 'product' : 'products'}`,
-      );
+      parts.push(ERROR_MESSAGES.countOf(productCount, 'product'));
     }
 
     throw new ConflictException({
-      message: `Country is referenced by ${parts.join(' and ')} and cannot be deleted.`,
+      message: ERROR_MESSAGES.stillReferenced('Country', parts),
       errorCode: ERROR_MAP.COUNTRY_IN_USE,
     });
   }
@@ -196,7 +195,10 @@ export class CountryService {
       .addSelect(['updater.id', 'updater.email']);
 
     if (sortBy === CountrySortBy.NAME) {
-      qb.addSelect(`country.name->>'${language ?? 'en'}'`, 'country_name_sort');
+      qb.addSelect(
+        collated(`country.name->>'${language ?? 'en'}'`, language),
+        'country_name_sort',
+      );
       qb.orderBy('country_name_sort', sortOrder);
     } else {
       qb.orderBy(`country.${sortBy}`, sortOrder);
@@ -231,19 +233,17 @@ export class CountryService {
     dto: FindManyCountriesStoreDto,
     language: Language,
   ): Promise<PaginatedData<StoreCountryModel>> {
-    const sortBy = dto?.sortBy ?? CountrySortBy.NAME;
-    const sortOrder = dto?.sortOrder ?? SortOrder.ASC;
     const page = dto?.page ?? this._defaultPage;
     const limit = dto?.limit ?? this._defaultLimit;
 
+    // Always alphabetical: the storefront has no say in the ordering.
     const qb = this._countryRepository
       .createQueryBuilder('country')
-      .orderBy(
-        sortBy === CountrySortBy.NAME
-          ? `country.name->>'${language}'`
-          : `country.${sortBy}`,
-        sortOrder,
-      );
+      .addSelect(
+        collated(`country.name->>'${language}'`, language),
+        'country_name_sort',
+      )
+      .orderBy('country_name_sort', SortOrder.ASC);
 
     if (dto?.search) {
       qb.andWhere(

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   DataSource,
@@ -8,10 +13,12 @@ import {
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { ERROR_MAP, ERROR_MESSAGES } from '@core/types/errors.enum';
 import { PaginatedData } from '@core/types/paginted-data';
+import { collated } from '@core/utils/localized-collator.util';
 import { FEATURES } from '@core/constants';
 import { Language } from '@core/types/language';
 import { resolveLocalized } from '@core/utils/resolve-localized.util';
 import { S3Service } from '@features/s3/services/s3.service';
+import { Product } from '@features/product/entities/product.entity';
 
 import { Brand } from '../entities/brand.entity';
 import { CreateBrandDto } from '../dto/create-brand.dto';
@@ -23,6 +30,7 @@ import { BrandSortBy } from '@features/brand/enums/brand-sort.enum';
 
 @Injectable()
 export class BrandService {
+  private readonly _logger = new Logger(BrandService.name);
   private readonly _defaultPage = 1;
   private readonly _defaultLimit = 10;
 
@@ -43,7 +51,9 @@ export class BrandService {
     const brand = this._brandRepository.create({ ...rest, logoUrl, updatedBy });
     const saved = await this._brandRepository.save(brand);
 
-    return (await this._findOneWithRelations(saved.id))!;
+    // Re-read through findOneById so create, update and read all return the
+    // same shape, `productCount` included.
+    return this.findOneById(saved.id);
   }
 
   async update(
@@ -95,7 +105,7 @@ export class BrandService {
       await this._s3Service.deleteImages(obsoleteImages);
     }
 
-    return (await this._findOneWithRelations(saved.id))!;
+    return this.findOneById(saved.id);
   }
 
   async softDelete(id: string, updatedBy: string): Promise<void> {
@@ -142,11 +152,76 @@ export class BrandService {
       });
     }
 
+    await this._assertNotReferenced(id);
     await this._brandRepository.delete(id);
 
     if (brand.logoUrl) {
-      await this._s3Service.deleteImages([brand.logoUrl]);
+      // The row is already gone, so a cleanup failure must not turn a
+      // successful delete into an error response. `deleteImages` swallows S3
+      // API errors itself, but a malformed URL throws before it gets there.
+      try {
+        await this._s3Service.deleteImages([brand.logoUrl]);
+      } catch {
+        this._logger.warn(
+          `Brand ${id} was deleted but its logo could not be removed: ${brand.logoUrl}`,
+        );
+      }
     }
+  }
+
+  /**
+   * Blocks a hard delete when products still point at the brand. The FK is
+   * `NO ACTION`, so the delete would fail at the DB with an opaque violation;
+   * this turns it into a precise, actionable message instead.
+   *
+   * Soft-deleted products are counted too: they physically remain and still
+   * hold the foreign key, so they block the delete just the same.
+   * */
+  private async _assertNotReferenced(id: string): Promise<void> {
+    const productCount = await this._brandRepository.manager.count(Product, {
+      where: { brandId: id },
+      withDeleted: true,
+    });
+
+    if (productCount === 0) {
+      return;
+    }
+
+    throw new ConflictException({
+      message: ERROR_MESSAGES.stillReferenced('Brand', [
+        ERROR_MESSAGES.countOf(productCount, 'product'),
+      ]),
+      errorCode: ERROR_MAP.BRAND_IN_USE,
+    });
+  }
+
+  /**
+   * Counts referencing products for a page of brands in one grouped query.
+   * Soft-deleted products are included, so the number is exactly what
+   * `_assertNotReferenced` refuses on and what a soft delete would strip from
+   * live product pages.
+   * */
+  private async _withProductCounts(items: Brand[]): Promise<Brand[]> {
+    if (!items.length) {
+      return items;
+    }
+
+    const rows = await this._brandRepository.manager
+      .createQueryBuilder(Product, 'p')
+      .select('p.brandId', 'id')
+      .addSelect('COUNT(*)', 'count')
+      .where('p.brandId IN (:...ids)', { ids: items.map((item) => item.id) })
+      .withDeleted()
+      .groupBy('p.brandId')
+      .getRawMany<{ id: string; count: string }>();
+
+    const counts = new Map(
+      rows.map((row) => [row.id, parseInt(row.count, 10)]),
+    );
+
+    return items.map((item) =>
+      Object.assign(item, { productCount: counts.get(item.id) ?? 0 }),
+    );
   }
 
   async findOneById(id: string): Promise<Brand> {
@@ -159,7 +234,9 @@ export class BrandService {
       });
     }
 
-    return brand;
+    const [withCount] = await this._withProductCounts([brand]);
+
+    return withCount;
   }
 
   async findMany(dto: FindManyBrandsDto): Promise<PaginatedData<Brand>> {
@@ -175,8 +252,17 @@ export class BrandService {
       .leftJoin('brand.country', 'country')
       .addSelect(['country.id', 'country.name', 'country.code'])
       .leftJoin('brand.updater', 'updater')
-      .addSelect(['updater.id', 'updater.email'])
-      .orderBy(`brand.${sortBy}`, sortOrder);
+      .addSelect(['updater.id', 'updater.email']);
+
+    // The collated expression goes through a select alias: TypeORM rewrites
+    // paginated joined queries into a DISTINCT subquery and cannot map a raw
+    // `COLLATE` expression onto a column there.
+    if (sortBy === BrandSortBy.NAME) {
+      qb.addSelect(collated('brand.name'), 'brand_name_sort');
+      qb.orderBy('brand_name_sort', sortOrder);
+    } else {
+      qb.orderBy(`brand.${sortBy}`, sortOrder);
+    }
 
     if (withDeleted) {
       qb.withDeleted();
@@ -195,7 +281,7 @@ export class BrandService {
     const [items, total] = await qb.getManyAndCount();
 
     return {
-      items,
+      items: await this._withProductCounts(items),
       page,
       pageSize: limit,
       total,
@@ -207,8 +293,6 @@ export class BrandService {
     dto: FindManyBrandsStoreDto,
     language: Language,
   ): Promise<PaginatedData<StoreBrandModel>> {
-    const sortBy = dto?.sortBy ?? BrandSortBy.NAME;
-    const sortOrder = dto?.sortOrder ?? SortOrder.ASC;
     const page = dto?.page ?? this._defaultPage;
     const limit = dto?.limit ?? this._defaultLimit;
 
@@ -216,7 +300,19 @@ export class BrandService {
       .createQueryBuilder('brand')
       .leftJoin('brand.country', 'country')
       .addSelect(['country.code', 'country.name'])
-      .orderBy(`brand.${sortBy}`, sortOrder);
+      // Always alphabetical: the storefront has no say in the ordering.
+      .addSelect(collated('brand.name', language), 'brand_name_sort')
+      .orderBy('brand_name_sort', SortOrder.ASC)
+      // Only brands a visible product actually uses: a filter the storefront
+      // can never satisfy is worse than a missing one.
+      .where(
+        `brand.id IN (
+          SELECT p."brandId" FROM "products" p
+          WHERE p."isActive" = true
+            AND p."deletedAt" IS NULL
+            AND p."brandId" IS NOT NULL
+        )`,
+      );
 
     if (dto?.search) {
       qb.andWhere('brand.name ILIKE :search', { search: `%${dto.search}%` });

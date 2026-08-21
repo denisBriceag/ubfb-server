@@ -16,7 +16,10 @@ import {
   resolveLocalized,
   resolveLocalizedNullable,
 } from '@core/utils/resolve-localized.util';
+import { collated, sortByLocalized } from '@core/utils/localized-collator.util';
 import { S3Service } from '@features/s3/services/s3.service';
+
+import { Category } from '@features/category/entities/category.entity';
 
 import { Product } from '../entities/product.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
@@ -35,6 +38,14 @@ import {
   ProductSortBy,
   ProductStoreSortBy,
 } from '@features/product/enums/product-sort.enum';
+
+interface CategoryIndexRow {
+  id: string;
+  parentId: string | null;
+  slug: string;
+  name: Record<Language, string>;
+  isActive: boolean;
+}
 
 @Injectable()
 export class ProductService {
@@ -169,8 +180,6 @@ export class ProductService {
       });
     }
 
-    // Delete the row first: if it fails (e.g. FK violation) the images must
-    // survive with it
     await this._productRepository.delete(id);
 
     if (product.images.length > 0) {
@@ -192,6 +201,16 @@ export class ProductService {
   }
 
   async findMany(dto: FindManyProductsDto): Promise<PaginatedData<Product>> {
+    // Rolls up the subtree the same way the storefront does, but over every
+    // category rather than only the reachable ones: the back office is where
+    // products stranded under a deactivated category have to be findable, so
+    // no visibility set is passed. Loaded only when a filter needs it.
+    const categoryIds = dto?.categorySlug
+      ? this._resolveCategoryScope(
+          await this._loadCategoryIndex(),
+          dto.categorySlug,
+        )
+      : null;
     const search = dto?.search;
     const sortBy = dto?.sortBy ?? ProductSortBy.CREATED_AT;
     const sortOrder = dto?.sortOrder ?? SortOrder.DESC;
@@ -208,10 +227,18 @@ export class ProductService {
       .leftJoin('product.country', 'country')
       .addSelect(['country.id', 'country.name', 'country.code'])
       .leftJoin('product.packagingType', 'packagingType')
-      .addSelect(['packagingType.id', 'packagingType.name'])
+      .addSelect(['packagingType.id', 'packagingType.code'])
       .leftJoin('product.updater', 'updater')
-      .addSelect(['updater.id', 'updater.email'])
-      .orderBy(`product.${sortBy}`, sortOrder);
+      .addSelect(['updater.id', 'updater.email']);
+
+    // Via a select alias: a raw `COLLATE` expression breaks TypeORM's
+    // DISTINCT-subquery rewrite for paginated joined queries.
+    if (sortBy === ProductSortBy.NAME) {
+      qb.addSelect(collated('product.name'), 'product_name_sort');
+      qb.orderBy('product_name_sort', sortOrder);
+    } else {
+      qb.orderBy(`product.${sortBy}`, sortOrder);
+    }
 
     if (withDeleted) {
       qb.withDeleted();
@@ -221,11 +248,7 @@ export class ProductService {
       qb.andWhere('product.name ILIKE :search', { search: `%${search}%` });
     }
 
-    if (dto?.categorySlug) {
-      qb.andWhere('category.slug = :categorySlug', {
-        categorySlug: dto.categorySlug,
-      });
-    }
+    this._applyCategoryScope(qb, 'product', categoryIds);
 
     if (dto?.brandSlug) {
       qb.andWhere('brand.slug = :brandSlug', { brandSlug: dto.brandSlug });
@@ -237,9 +260,9 @@ export class ProductService {
       });
     }
 
-    if (dto?.packagingTypeName) {
-      qb.andWhere('packagingType.name = :packagingTypeName', {
-        packagingTypeName: dto.packagingTypeName,
+    if (dto?.packagingTypeCode) {
+      qb.andWhere('packagingType.code = :packagingTypeCode', {
+        packagingTypeCode: dto.packagingTypeCode,
       });
     }
 
@@ -282,11 +305,20 @@ export class ProductService {
     const sortOrder = dto?.sortOrder ?? SortOrder.DESC;
     const qb = this._buildStoreProductQb();
 
-    this._applyStoreFilters(qb, dto);
+    this._applyStoreFilters(
+      qb,
+      dto,
+      await this._resolveStoreCategoryScope(dto),
+    );
 
-    qb.orderBy(`product.${sortBy}`, sortOrder)
-      .skip((page - 1) * limit)
-      .take(limit);
+    if (sortBy === ProductStoreSortBy.NAME) {
+      qb.addSelect(collated('product.name', language), 'product_name_sort');
+      qb.orderBy('product_name_sort', sortOrder);
+    } else {
+      qb.orderBy(`product.${sortBy}`, sortOrder);
+    }
+
+    qb.skip((page - 1) * limit).take(limit);
 
     const [items, total] = await qb.getManyAndCount();
 
@@ -344,6 +376,18 @@ export class ProductService {
     dto: FindManyProductsStoreDto,
     language: Language,
   ): Promise<StoreProductFiltersModel> {
+    // Resolved once and shared: six facets would otherwise each re-read and
+    // re-walk the same category tree. Unlike the list endpoints this always
+    // needs the index, because the category facet rolls counts up the tree
+    // whether or not a category filter is active.
+    const index = await this._loadCategoryIndex();
+    const reachable = this._reachableCategoryIds(index);
+    const categoryIds = this._resolveCategoryScope(
+      index,
+      dto.categorySlug,
+      reachable,
+    );
+
     const [
       categories,
       brands,
@@ -352,12 +396,12 @@ export class ProductService {
       priceRange,
       alcoholPercentageRange,
     ] = await Promise.all([
-      this._facetCategories(dto, language),
-      this._facetBrands(dto),
-      this._facetCountries(dto, language),
-      this._facetPackagingTypes(dto, language),
-      this._facetPriceRange(dto),
-      this._facetAlcoholRange(dto),
+      this._facetCategories(dto, language, index, reachable),
+      this._facetBrands(dto, language, categoryIds),
+      this._facetCountries(dto, language, categoryIds),
+      this._facetPackagingTypes(dto, language, categoryIds),
+      this._facetPriceRange(dto, categoryIds),
+      this._facetAlcoholRange(dto, categoryIds),
     ]);
 
     return {
@@ -380,23 +424,20 @@ export class ProductService {
       .leftJoin('product.country', 'country')
       .addSelect(['country.code', 'country.name'])
       .leftJoin('product.packagingType', 'packagingType')
-      .addSelect(['packagingType.name', 'packagingType.label'])
+      .addSelect(['packagingType.code', 'packagingType.label'])
       .where('product.isActive = true');
   }
 
   private _applyStoreFilters(
     qb: SelectQueryBuilder<Product>,
     dto: FindManyProductsStoreDto,
+    categoryIds: string[] | null,
   ): void {
     if (dto.search) {
       qb.andWhere('product.name ILIKE :search', { search: `%${dto.search}%` });
     }
 
-    if (dto.categorySlug) {
-      qb.andWhere('category.slug = :categorySlug', {
-        categorySlug: dto.categorySlug,
-      });
-    }
+    this._applyCategoryScope(qb, 'product', categoryIds);
 
     if (dto.brandSlug) {
       qb.andWhere('brand.slug = :brandSlug', { brandSlug: dto.brandSlug });
@@ -408,9 +449,9 @@ export class ProductService {
       });
     }
 
-    if (dto.packagingTypeName) {
-      qb.andWhere('packagingType.name = :packagingTypeName', {
-        packagingTypeName: dto.packagingTypeName,
+    if (dto.packagingTypeCode) {
+      qb.andWhere('packagingType.code = :packagingTypeCode', {
+        packagingTypeCode: dto.packagingTypeCode,
       });
     }
 
@@ -490,8 +531,8 @@ export class ProductService {
         : null,
       packagingType: product.packagingType
         ? {
-            name: (product.packagingType as any).name,
-            label: resolveLocalizedNullable(
+            code: (product.packagingType as any).code,
+            label: resolveLocalized(
               (product.packagingType as any).label,
               language,
             ),
@@ -500,20 +541,203 @@ export class ProductService {
     };
   }
 
+  /**
+   * Categories form a tree, so `?categorySlug=vin` has to match everything
+   * beneath `vin` as well — otherwise every non-leaf category in the menu is a
+   * link to an empty page.
+   *
+   * The whole (small) category table is read at most once per request and
+   * walked in Node rather than issuing a recursive CTE at each of the seven
+   * places `categorySlug` is applied. The walk carries a visited set, so a
+   * cycle that slipped past `CategoryService._isDescendant` cannot hang the
+   * request.
+   *
+   * How much of the tree counts depends on the surface, and is decided by the
+   * visibility set passed to `_resolveCategoryScope` rather than here — the
+   * storefront stays inside `_reachableCategoryIds`, the back office walks
+   * everything.
+   * */
+  private async _loadCategoryIndex(): Promise<CategoryIndexRow[]> {
+    return this._productRepository.manager
+      .createQueryBuilder(Category, 'category')
+      .select([
+        'category.id',
+        'category.parentId',
+        'category.slug',
+        'category.name',
+        'category.isActive',
+      ])
+      .getMany();
+  }
+
+  /**
+   * Ids of categories the storefront menu can actually reach: active, with an
+   * unbroken chain of active parents up to a root. `CategoryService.findTree`
+   * builds from `parentId === null` downwards over active rows only, so a live
+   * category under a hidden parent is silently dropped there — anything the
+   * menu cannot show must not be offered as a filter either.
+   * */
+  private _reachableCategoryIds(index: CategoryIndexRow[]): Set<string> {
+    const byId = new Map(index.map((c) => [c.id, c]));
+    const reachable = new Set<string>();
+
+    for (const category of index) {
+      const chain: string[] = [];
+      const seen = new Set<string>();
+      let current: CategoryIndexRow | undefined = category;
+      let ok = true;
+
+      while (current) {
+        if (!current.isActive || seen.has(current.id)) {
+          ok = false;
+          break;
+        }
+
+        seen.add(current.id);
+        chain.push(current.id);
+
+        if (!current.parentId) {
+          break;
+        }
+
+        const parent = byId.get(current.parentId);
+
+        // Parent missing from the index (soft-deleted): the tree orphans this
+        // branch, so it is not reachable.
+        if (!parent) {
+          ok = false;
+          break;
+        }
+
+        current = parent;
+      }
+
+      if (ok) {
+        for (const id of chain) {
+          reachable.add(id);
+        }
+      }
+    }
+
+    return reachable;
+  }
+
+  /**
+   * The storefront's category scope: the subtree rooted at `dto.categorySlug`
+   * restricted to what the menu can actually reach, or `null` when no
+   * category filter is requested. Loads the index only when there is a slug
+   * to resolve — the common case is no filter at all, and the whole table
+   * would otherwise be read on every product list request.
+   * */
+  private async _resolveStoreCategoryScope(
+    dto: FindManyProductsStoreDto,
+  ): Promise<string[] | null> {
+    if (!dto.categorySlug) {
+      return null;
+    }
+
+    const index = await this._loadCategoryIndex();
+
+    return this._resolveCategoryScope(
+      index,
+      dto.categorySlug,
+      this._reachableCategoryIds(index),
+    );
+  }
+
+  /**
+   * Ids of the subtree rooted at `slug`, or `null` when no category filter is
+   * requested. An unknown slug yields an empty array, which callers turn into
+   * "match nothing" rather than "match everything".
+   *
+   * `reachable` is the storefront's visibility set — pass it to keep the walk
+   * inside what the menu exposes. Omitting it (the admin surface) walks every
+   * category in the index, hidden ones included.
+   * */
+  private _resolveCategoryScope(
+    index: CategoryIndexRow[],
+    slug?: string,
+    reachable?: Set<string>,
+  ): string[] | null {
+    if (!slug) {
+      return null;
+    }
+
+    const isVisible = (id: string): boolean => !reachable || reachable.has(id);
+    const root = index.find((c) => c.slug === slug && isVisible(c.id));
+
+    if (!root) {
+      return [];
+    }
+
+    const childrenOf = new Map<string, CategoryIndexRow[]>();
+
+    for (const category of index) {
+      if (!isVisible(category.id) || !category.parentId) {
+        continue;
+      }
+
+      const siblings = childrenOf.get(category.parentId) ?? [];
+      siblings.push(category);
+      childrenOf.set(category.parentId, siblings);
+    }
+
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    const queue = [root];
+
+    while (queue.length) {
+      const current = queue.shift()!;
+
+      if (seen.has(current.id)) {
+        continue;
+      }
+
+      seen.add(current.id);
+      ids.push(current.id);
+      queue.push(...(childrenOf.get(current.id) ?? []));
+    }
+
+    return ids;
+  }
+
+  /** Applies a resolved category scope to any query builder over products. */
+  private _applyCategoryScope(
+    qb: SelectQueryBuilder<Product>,
+    alias: string,
+    categoryIds: string[] | null,
+  ): void {
+    if (categoryIds === null) {
+      return;
+    }
+
+    if (!categoryIds.length) {
+      qb.andWhere('1 = 0');
+
+      return;
+    }
+
+    qb.andWhere(`${alias}.categoryId IN (:...categoryIds)`, { categoryIds });
+  }
+
   private async _facetCategories(
     dto: FindManyProductsStoreDto,
     language: Language,
+    index: CategoryIndexRow[],
+    reachable: Set<string>,
   ): Promise<CategoryFilter[]> {
     const qb = this._productRepository
       .createQueryBuilder('p')
       .innerJoin('p.category', 'c')
       .select('c.slug', 'slug')
-      .addSelect(`c.name->>'${language}'`, 'name')
       .addSelect('COUNT(DISTINCT p.id)', 'count')
       .where('p.isActive = true')
-      .groupBy('c.slug')
-      .addGroupBy('c.name')
-      .orderBy(`c.name->>'${language}'`, 'ASC');
+      // The store category tree only exposes active categories, so a facet
+      // built from inactive ones would offer a filter the menu never shows.
+      .andWhere('c.isActive = true')
+      // No name here: `_rollUpCategoryCounts` resolves it from the category
+      // index, which it already holds for the tree walk.
+      .groupBy('c.slug');
 
     if (dto.brandSlug) {
       qb.innerJoin('p.brand', 'b').andWhere('b.slug = :brandSlug', {
@@ -527,11 +751,11 @@ export class ProductService {
       });
     }
 
-    if (dto.packagingTypeName) {
+    if (dto.packagingTypeCode) {
       qb.innerJoin('p.packagingType', 'pt').andWhere(
-        'pt.name = :packagingTypeName',
+        'pt.code = :packagingTypeCode',
         {
-          packagingTypeName: dto.packagingTypeName,
+          packagingTypeCode: dto.packagingTypeCode,
         },
       );
     }
@@ -570,21 +794,67 @@ export class ProductService {
       qb.andWhere('p.name ILIKE :search', { search: `%${dto.search}%` });
     }
 
-    const raw = await qb.getRawMany<{
-      slug: string;
-      name: string;
-      count: string;
-    }>();
+    const raw = await qb.getRawMany<{ slug: string; count: string }>();
 
-    return raw.map((r) => ({
-      slug: r.slug,
-      name: r.name,
-      count: parseInt(r.count, 10),
-    }));
+    return this._rollUpCategoryCounts(raw, index, language, reachable);
+  }
+
+  /**
+   * Turns per-category counts into per-subtree counts, so a parent reports
+   * everything filed beneath it instead of being an invisible node in the
+   * storefront menu.
+   *
+   * The totals deliberately overlap: a product under `vin-rosu` is counted for
+   * `vin-rosu` and again for `vin`. Summing the facet is therefore meaningless
+   * — each entry answers "how many products would I get if I clicked this",
+   * which is exactly what the category filter now returns.
+   * */
+  private _rollUpCategoryCounts(
+    raw: { slug: string; count: string }[],
+    index: CategoryIndexRow[],
+    language: Language,
+    reachable: Set<string>,
+  ): CategoryFilter[] {
+    const bySlug = new Map(index.map((c) => [c.slug, c]));
+    const byId = new Map(index.map((c) => [c.id, c]));
+    const totals = new Map<string, number>();
+
+    // Walk each category's ancestors, adding its own count to every one of
+    // them. The visited set keeps a cycle from looping forever, and an
+    // inactive ancestor prunes the rest of the chain.
+    for (const row of raw) {
+      const count = parseInt(row.count, 10);
+      let current = bySlug.get(row.slug);
+      const seen = new Set<string>();
+
+      while (current && reachable.has(current.id) && !seen.has(current.id)) {
+        seen.add(current.id);
+        totals.set(current.slug, (totals.get(current.slug) ?? 0) + count);
+        current = current.parentId ? byId.get(current.parentId) : undefined;
+      }
+    }
+
+    const entries: CategoryFilter[] = [];
+
+    for (const [slug, count] of totals) {
+      const category = bySlug.get(slug);
+
+      if (category) {
+        entries.push({
+          slug,
+          name: resolveLocalized(category.name, language),
+          count,
+        });
+      }
+    }
+
+    return sortByLocalized(entries, language, (item) => item.name);
   }
 
   private async _facetBrands(
     dto: FindManyProductsStoreDto,
+    language: Language,
+    categoryIds: string[] | null,
   ): Promise<BrandsFilter[]> {
     const qb = this._productRepository
       .createQueryBuilder('p')
@@ -594,14 +864,9 @@ export class ProductService {
       .addSelect('COUNT(DISTINCT p.id)', 'count')
       .where('p.isActive = true')
       .groupBy('b.slug')
-      .addGroupBy('b.name')
-      .orderBy('b.name', 'ASC');
+      .addGroupBy('b.name');
 
-    if (dto.categorySlug) {
-      qb.innerJoin('p.category', 'c').andWhere('c.slug = :categorySlug', {
-        categorySlug: dto.categorySlug,
-      });
-    }
+    this._applyCategoryScope(qb, 'p', categoryIds);
 
     if (dto.countryCode) {
       qb.innerJoin('p.country', 'co').andWhere('co.code = :countryCode', {
@@ -609,11 +874,11 @@ export class ProductService {
       });
     }
 
-    if (dto.packagingTypeName) {
+    if (dto.packagingTypeCode) {
       qb.innerJoin('p.packagingType', 'pt').andWhere(
-        'pt.name = :packagingTypeName',
+        'pt.code = :packagingTypeCode',
         {
-          packagingTypeName: dto.packagingTypeName,
+          packagingTypeCode: dto.packagingTypeCode,
         },
       );
     }
@@ -658,33 +923,38 @@ export class ProductService {
       count: string;
     }>();
 
-    return raw.map((r) => ({
-      slug: r.slug,
-      name: r.name,
-      count: parseInt(r.count, 10),
-    }));
+    return sortByLocalized(
+      raw.map((r) => ({
+        slug: r.slug,
+        name: r.name,
+        count: parseInt(r.count, 10),
+      })),
+      language,
+      (item) => item.name,
+    );
   }
 
   private async _facetCountries(
     dto: FindManyProductsStoreDto,
     language: Language,
+    categoryIds: string[] | null,
   ): Promise<CountriesFilter[]> {
     const qb = this._productRepository
       .createQueryBuilder('p')
       .innerJoin('p.country', 'co')
       .select('co.code', 'code')
-      .addSelect(`co.name->>'${language}'`, 'name')
+      // Same en-then-code fallback as the packaging-type facet: `->>` on its
+      // own would put a NULL name behind a non-null type.
+      .addSelect(
+        `COALESCE(co.name->>'${language}', co.name->>'en', co.code)`,
+        'name',
+      )
       .addSelect('COUNT(DISTINCT p.id)', 'count')
       .where('p.isActive = true')
       .groupBy('co.code')
-      .addGroupBy('co.name')
-      .orderBy(`co.name->>'${language}'`, 'ASC');
+      .addGroupBy('co.name');
 
-    if (dto.categorySlug) {
-      qb.innerJoin('p.category', 'c').andWhere('c.slug = :categorySlug', {
-        categorySlug: dto.categorySlug,
-      });
-    }
+    this._applyCategoryScope(qb, 'p', categoryIds);
 
     if (dto.brandSlug) {
       qb.innerJoin('p.brand', 'b').andWhere('b.slug = :brandSlug', {
@@ -692,11 +962,11 @@ export class ProductService {
       });
     }
 
-    if (dto.packagingTypeName) {
+    if (dto.packagingTypeCode) {
       qb.innerJoin('p.packagingType', 'pt').andWhere(
-        'pt.name = :packagingTypeName',
+        'pt.code = :packagingTypeCode',
         {
-          packagingTypeName: dto.packagingTypeName,
+          packagingTypeCode: dto.packagingTypeCode,
         },
       );
     }
@@ -741,33 +1011,39 @@ export class ProductService {
       count: string;
     }>();
 
-    return raw.map((r) => ({
-      code: r.code,
-      name: r.name,
-      count: parseInt(r.count, 10),
-    }));
+    return sortByLocalized(
+      raw.map((r) => ({
+        code: r.code,
+        name: r.name,
+        count: parseInt(r.count, 10),
+      })),
+      language,
+      (item) => item.name,
+    );
   }
 
   private async _facetPackagingTypes(
     dto: FindManyProductsStoreDto,
     language: Language,
+    categoryIds: string[] | null,
   ): Promise<PackagingTypesFilter[]> {
     const qb = this._productRepository
       .createQueryBuilder('p')
       .innerJoin('p.packagingType', 'pt')
-      .select('pt.name', 'name')
-      .addSelect(`pt.label->>'${language}'`, 'label')
+      .select('pt.code', 'code')
+      // Mirrors `resolveLocalized`: the requested language, then `en`, then
+      // the code — `->>` alone yields NULL for a key a row happens to lack,
+      // and both this row type and `PackagingTypesFilter` promise a string.
+      .addSelect(
+        `COALESCE(pt.label->>'${language}', pt.label->>'en', pt.code)`,
+        'label',
+      )
       .addSelect('COUNT(DISTINCT p.id)', 'count')
       .where('p.isActive = true')
-      .groupBy('pt.name')
-      .addGroupBy('pt.label')
-      .orderBy('pt.name', 'ASC');
+      .groupBy('pt.code')
+      .addGroupBy('pt.label');
 
-    if (dto.categorySlug) {
-      qb.innerJoin('p.category', 'c').andWhere('c.slug = :categorySlug', {
-        categorySlug: dto.categorySlug,
-      });
-    }
+    this._applyCategoryScope(qb, 'p', categoryIds);
 
     if (dto.brandSlug) {
       qb.innerJoin('p.brand', 'b').andWhere('b.slug = :brandSlug', {
@@ -816,20 +1092,28 @@ export class ProductService {
     }
 
     const raw = await qb.getRawMany<{
-      name: string;
-      label: string | null;
+      code: string;
+      label: string;
       count: string;
     }>();
 
-    return raw.map((r) => ({
-      name: r.name,
-      label: r.label,
-      count: parseInt(r.count, 10),
-    }));
+    // Ordered in Node: the database collation is `C`, so SQL would sort these
+    // labels by byte — wrong for ro diacritics, Cyrillic and mixed case. The
+    // facet is a short, complete list, so sorting it here is exact.
+    return sortByLocalized(
+      raw.map((r) => ({
+        code: r.code,
+        label: r.label,
+        count: parseInt(r.count, 10),
+      })),
+      language,
+      (item) => item.label,
+    );
   }
 
   private async _facetPriceRange(
     dto: FindManyProductsStoreDto,
+    categoryIds: string[] | null,
   ): Promise<{ min: number; max: number } | null> {
     const qb = this._productRepository
       .createQueryBuilder('p')
@@ -837,11 +1121,7 @@ export class ProductService {
       .addSelect('MAX(p.price)', 'max')
       .where('p.isActive = true');
 
-    if (dto.categorySlug) {
-      qb.innerJoin('p.category', 'c').andWhere('c.slug = :categorySlug', {
-        categorySlug: dto.categorySlug,
-      });
-    }
+    this._applyCategoryScope(qb, 'p', categoryIds);
 
     if (dto.brandSlug) {
       qb.innerJoin('p.brand', 'b').andWhere('b.slug = :brandSlug', {
@@ -855,11 +1135,11 @@ export class ProductService {
       });
     }
 
-    if (dto.packagingTypeName) {
+    if (dto.packagingTypeCode) {
       qb.innerJoin('p.packagingType', 'pt').andWhere(
-        'pt.name = :packagingTypeName',
+        'pt.code = :packagingTypeCode',
         {
-          packagingTypeName: dto.packagingTypeName,
+          packagingTypeCode: dto.packagingTypeCode,
         },
       );
     }
@@ -902,6 +1182,7 @@ export class ProductService {
 
   private async _facetAlcoholRange(
     dto: FindManyProductsStoreDto,
+    categoryIds: string[] | null,
   ): Promise<{ min: number; max: number } | null> {
     const qb = this._productRepository
       .createQueryBuilder('p')
@@ -909,11 +1190,7 @@ export class ProductService {
       .addSelect('MAX(p.alcoholPercentage)', 'max')
       .where('p.isActive = true AND p.alcoholPercentage IS NOT NULL');
 
-    if (dto.categorySlug) {
-      qb.innerJoin('p.category', 'c').andWhere('c.slug = :categorySlug', {
-        categorySlug: dto.categorySlug,
-      });
-    }
+    this._applyCategoryScope(qb, 'p', categoryIds);
 
     if (dto.brandSlug) {
       qb.innerJoin('p.brand', 'b').andWhere('b.slug = :brandSlug', {
@@ -927,11 +1204,11 @@ export class ProductService {
       });
     }
 
-    if (dto.packagingTypeName) {
+    if (dto.packagingTypeCode) {
       qb.innerJoin('p.packagingType', 'pt').andWhere(
-        'pt.name = :packagingTypeName',
+        'pt.code = :packagingTypeCode',
         {
-          packagingTypeName: dto.packagingTypeName,
+          packagingTypeCode: dto.packagingTypeCode,
         },
       );
     }
@@ -1034,7 +1311,7 @@ export class ProductService {
       .leftJoin('product.country', 'country')
       .addSelect(['country.id', 'country.name', 'country.code'])
       .leftJoin('product.packagingType', 'packagingType')
-      .addSelect(['packagingType.id', 'packagingType.name'])
+      .addSelect(['packagingType.id', 'packagingType.code'])
       .leftJoin('product.updater', 'updater')
       .addSelect(['updater.id', 'updater.email'])
       .leftJoin('product.relatedProducts', 'related')

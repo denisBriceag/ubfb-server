@@ -1,13 +1,17 @@
-import { IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+import { IsNotEmpty, IsString, Length, Matches } from 'class-validator';
 import { IsFullLocalizedString } from '@core/validators';
+import { SLUG_REGEX } from '@core/constants';
+import { Language } from '@core/types/language';
 
 export class CreatePackagingTypeDto {
   @IsString()
   @IsNotEmpty()
-  @Length(1, 100)
-  name: string;
+  @Length(1, 50)
+  @Matches(SLUG_REGEX, {
+    message: 'code must contain only lowercase letters, numbers, and hyphens',
+  })
+  code: string;
 
-  @IsOptional()
   @IsFullLocalizedString()
-  label?: Record<string, string> | null;
+  label: Record<Language, string>;
 }

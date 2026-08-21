@@ -1,20 +1,15 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SortOrder } from '@core/types/sorting-order.enum';
-import { CountrySortBy } from '@features/country/enums/country-sort.enum';
 
+/**
+ * No `sortBy`/`sortOrder`: the storefront never re-orders countries. It reads
+ * them alphabetically to build product filters, so the ordering is fixed
+ * server-side and stays consistent across clients.
+ * */
 export class FindManyCountriesStoreDto {
   @IsOptional()
   @IsString()
   search?: string;
-
-  @IsOptional()
-  @IsEnum(CountrySortBy)
-  sortBy?: CountrySortBy;
-
-  @IsOptional()
-  @IsEnum(SortOrder)
-  sortOrder?: SortOrder;
 
   @IsOptional()
   @Type(() => Number)

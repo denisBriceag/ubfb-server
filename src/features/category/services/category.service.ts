@@ -13,6 +13,7 @@ import {
 import { SortOrder } from '@core/types/sorting-order.enum';
 import { ERROR_MAP, ERROR_MESSAGES } from '@core/types/errors.enum';
 import { PaginatedData } from '@core/types/paginted-data';
+import { collated, sortByLocalized } from '@core/utils/localized-collator.util';
 import { FEATURES } from '@core/constants';
 import { Language } from '@core/types/language';
 import { resolveLocalized } from '@core/utils/resolve-localized.util';
@@ -252,7 +253,7 @@ export class CategoryService {
 
     if (sortBy === CategorySortBy.NAME) {
       qb.addSelect(
-        `category.name->>'${language ?? 'en'}'`,
+        collated(`category.name->>'${language ?? 'en'}'`, language),
         'category_name_sort',
       );
       qb.orderBy('category_name_sort', sortOrder);
@@ -294,18 +295,26 @@ export class CategoryService {
   async findTree(language: Language): Promise<StoreCategoryNode[]> {
     const categories = await this._categoryRepository.find({
       where: { isActive: true },
+      // Only a deterministic tie-break; the real ordering is applied per level
+      // in `_buildTree`, alphabetically on the localized name.
       order: { createdAt: 'ASC' },
     });
 
     return this._buildTree(categories, null, language);
   }
 
+  /**
+   * Sorts every level of the tree, so children are alphabetical within their
+   * own parent rather than only at the root. Done in Node because the whole
+   * tree is loaded at once and the database collation cannot order `ă` or
+   * Cyrillic correctly — see `sortByLocalized`.
+   * */
   private _buildTree(
     categories: Category[],
     parentId: string | null,
     language: Language,
   ): StoreCategoryNode[] {
-    return categories
+    const nodes = categories
       .filter((c) => c.parentId === parentId)
       .map((c) => ({
         id: c.id,
@@ -315,6 +324,8 @@ export class CategoryService {
         depth: c.depth,
         children: this._buildTree(categories, c.id, language),
       }));
+
+    return sortByLocalized(nodes, language, (node) => node.name);
   }
 
   private async _isDescendant(

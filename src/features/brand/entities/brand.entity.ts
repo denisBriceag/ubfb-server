@@ -26,4 +26,12 @@ export class Brand extends BaseEntity {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'updatedBy' })
   updater: Pick<User, 'id' | 'email'> | null;
+
+  /**
+   * Not a column: how many products reference this brand, soft-deleted ones
+   * included — the same set the hard-delete guard counts, so a non-zero value
+   * means a hard delete will be refused and a soft delete will strip the brand
+   * from that many product pages.
+   * */
+  productCount?: number;
 }

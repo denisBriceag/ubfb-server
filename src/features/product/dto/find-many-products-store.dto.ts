@@ -32,7 +32,7 @@ export class FindManyProductsStoreDto {
 
   @IsOptional()
   @IsString()
-  packagingTypeName?: string;
+  packagingTypeCode?: string;
 
   @IsOptional()
   @Type(() => Number)

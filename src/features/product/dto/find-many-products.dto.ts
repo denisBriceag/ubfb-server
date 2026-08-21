@@ -30,7 +30,7 @@ export class FindManyProductsDto {
 
   @IsOptional()
   @IsString()
-  packagingTypeName?: string;
+  packagingTypeCode?: string;
 
   @IsOptional()
   @ToBoolean()

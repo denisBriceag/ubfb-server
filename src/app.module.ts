@@ -7,6 +7,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { MailModule } from '@core/mail/mail.module';
 import { HttpExceptionFilter } from '@core/exceptions/exceptions.filter';
 import { TypeOrmExceptionFilter } from '@core/exceptions/typeorm-exceptions.filter';
+import { IcuCollationProbe } from '@core/database/icu-collation.probe';
 
 import { AdminModule } from './domains/admin/admin.module';
 import { StoreModule } from './domains/store/store.module';
@@ -62,6 +63,7 @@ import path from 'node:path';
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
+    IcuCollationProbe,
   ],
 })
 export class AppModule {}

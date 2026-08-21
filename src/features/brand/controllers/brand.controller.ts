@@ -102,9 +102,17 @@ export class BrandController {
 
   @Patch(':id')
   @Role(Roles.SUPER_ADMIN, Roles.ADMIN)
-  @ApiOperation({ summary: operations.UPDATE_BY_ID })
+  @ApiOperation({
+    summary: operations.UPDATE_BY_ID,
+    description:
+      'Requires the current `version`. `slug` cannot be changed: it is the key the storefront filters and links on.',
+  })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.OK, type: Brand })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Version mismatch — the record was modified by someone else',
+  })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
@@ -129,7 +137,11 @@ export class BrandController {
   @Delete(':id/soft')
   @Role(Roles.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: operations.SOFT_DELETE_BY_ID })
+  @ApiOperation({
+    summary: operations.SOFT_DELETE_BY_ID,
+    description:
+      'Hides the brand from the storefront. Products keep the foreign key but their brand reads as null until it is restored — check `productCount` before calling.',
+  })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
   @ApiResponse({
@@ -179,6 +191,10 @@ export class BrandController {
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: SWAGGER_RES_DESCRIPTIONS.NOT_FOUND,
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Brand is still referenced by products',
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,

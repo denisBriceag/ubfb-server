@@ -6,7 +6,12 @@ services:
       POSTGRES_PASSWORD: ubfb
       POSTGRES_DB: ubfb
     ports:
-      - '5432:5432'
+      # 5433 on the host, not 5432: a Homebrew Postgres commonly holds 5432
+      # already, and it wins `localhost:5432` because it binds 127.0.0.1
+      # explicitly while Docker binds the wildcard. The app would then connect
+      # to the host server while this one sat there looking healthy. Inside
+      # the compose network the app service still talks to `postgres:5432`.
+      - '5433:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +24,10 @@ services:
     image: redis:7-alpine
     command: redis-server --appendonly yes
     ports:
-      - '6379:6379'
+      # 6380 for the same reason Postgres uses 5433: a host Redis on
+      # 127.0.0.1:6379 silently wins `localhost:6379` over Docker's wildcard
+      # bind. Inside the compose network the app still uses `redis:6379`.
+      - '6380:6379'
     volumes:
       - redisdata:/data
     healthcheck:
@@ -37,7 +45,12 @@ services:
       - '1025:1025' # SMTP
       - '8025:8025' # Web UI
 
+  # Infrastructure only by default: `docker compose up` brings up Postgres,
+  # Redis and Mailpit and stops there, leaving the app to run on the host via
+  # `pnpm start:dev`. The profile keeps the containerised app available for
+  # anyone who wants it — `docker compose --profile app up` behaves as before.
   app:
+    profiles: ['app']
     build:
       context: .
       target: dev

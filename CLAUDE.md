@@ -10,11 +10,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-docker compose up   # full dev stack: Postgres, Redis, Mailpit, app (watch mode)
-                    # app host port comes from APP_PORT in the root .env (3001 on this
+docker compose up   # infrastructure only: Postgres, Redis, Mailpit. The app is NOT
+                    # started — run it on the host with `pnpm start:dev`.
+docker compose --profile app up
+                    # adds the containerised app (watch mode) on top of the above.
+                    # Host port comes from APP_PORT in the root .env (3001 on this
                     # machine — the owner's proxy occupies 3000); default is 3000
 
-pnpm start:dev                     # app only, on the host (needs local Postgres/Redis)
+pnpm start:dev                     # app on the host against the compose infrastructure
+                                   # (run `pnpm db:init` first on a fresh database)
 pnpm build                         # nest build → dist/ (CLI rewrites @core/@features aliases)
 pnpm lint                          # eslint with --fix
 pnpm lint:check                    # check-only (what CI runs)
@@ -60,8 +64,9 @@ for its route tree. Auth is JWT access+refresh with Redis-backed token revocatio
 - `app.module.ts` sets `synchronize: NODE_ENV !== 'production'` — in dev the schema follows
   entities automatically at boot. Because of this the migration history is **incremental only**:
   the earliest migration ALTERs tables no migration ever created, so a fresh database cannot be
-  built from migrations. `pnpm db:init` (`scripts/init-db.ts`) handles this; the app container
-  runs it on every start.
+  built from migrations. `pnpm db:init` (`scripts/init-db.ts`) handles this. Nothing runs it
+  for you when the app runs on the host — only the `app` compose service does, on every start —
+  so run it yourself against a fresh database.
 - Consequence: migrations are only genuinely exercised against long-lived databases. When adding
   a migration, remember dev likely already has the change via synchronize.
 - Entity files must match `*.entity.ts` (TypeORM CLI globs them); migrations live in `src/migrations/`.

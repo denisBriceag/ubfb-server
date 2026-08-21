@@ -55,7 +55,6 @@ export enum ErrorsEnum {
   IMAGE_NO_DOTS = "The image name should not have any dots in it's name.",
   COUNTRIES_API_NOT_CONFIGURED = 'Countries provider is not configured.',
   COUNTRIES_API_UNAVAILABLE = 'Countries provider is currently unavailable. Please try again later.',
-  COUNTRY_IN_USE = 'Country is still referenced by other records and cannot be deleted.',
 }
 
 export const ERROR_MAP = {
@@ -117,6 +116,9 @@ export const ERROR_MAP = {
   COUNTRIES_API_NOT_CONFIGURED: 'COUNTRIES_API_NOT_CONFIGURED',
   COUNTRIES_API_UNAVAILABLE: 'COUNTRIES_API_UNAVAILABLE',
   COUNTRY_IN_USE: 'COUNTRY_IN_USE',
+  PACKAGING_TYPE_IN_USE: 'PACKAGING_TYPE_IN_USE',
+  PACKAGING_TYPE_CODE_TAKEN: 'PACKAGING_TYPE_CODE_TAKEN',
+  BRAND_IN_USE: 'BRAND_IN_USE',
 } as const;
 
 export const ERROR_MESSAGES = {
@@ -131,4 +133,21 @@ export const ERROR_MESSAGES = {
     `Field "${column ? column : 'column'}" is required. A required field is missing.`,
   imageMinimumWidth: (width: number) =>
     `Please upload an image at least ${width}px wide for best quality`,
+  /** `countOf(3, 'product')` -> `'3 products'`. */
+  countOf: (count: number, noun: string) =>
+    `${count} ${count === 1 ? noun : `${noun}s`}`,
+  /**
+   * A unique value is taken by a row the admin cannot see, because it was
+   * soft-deleted. Without this the bare constraint violation reads as a
+   * contradiction: the list shows no such record, yet the create is refused.
+   * */
+  softDeletedConflict: (subject: string, field: string, value: string) =>
+    `A deleted ${subject} already uses the ${field} "${value}". Restore it instead of creating a new one.`,
+  /**
+   * Why a hard delete was refused, naming what still points at the record so
+   * the admin knows what to clear first. `subject` is the display name of the
+   * record ('Brand'), `parts` the counts built with `countOf`.
+   * */
+  stillReferenced: (subject: string, parts: string[]) =>
+    `${subject} is referenced by ${parts.join(' and ')} and cannot be deleted.`,
 };

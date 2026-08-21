@@ -14,7 +14,7 @@ export type CountriesFilter = Pick<StoreCountryModel, 'code' | 'name'> & {
 };
 export type PackagingTypesFilter = Pick<
   StorePackagingTypeModel,
-  'label' | 'name'
+  'label' | 'code'
 > & {
   count: number;
 };
